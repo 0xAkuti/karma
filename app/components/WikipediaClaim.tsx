@@ -232,8 +232,8 @@ export function WikipediaClaim() {
               <div className="bg-base-200 p-4 rounded-lg max-w-md mx-auto">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="font-medium">Email Domain:</span>
-                    <span className="text-primary">{emailProofResult.emailDomain}</span>
+                    <span className="font-medium">Donation Amount:</span>
+                    <span className="text-primary">{emailProofResult.donationAmount}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Target Wallet:</span>
@@ -292,8 +292,8 @@ export function WikipediaClaim() {
                   <div className="card bg-gradient-to-br from-primary/20 to-secondary/20">
                     <div className="card-body items-center">
                       <div className="text-4xl mb-2">📚</div>
-                      <h3 className="card-title text-lg">Email Domain Verified</h3>
-                      <p className="text-center text-sm">{emailProofResult.emailDomain}</p>
+                      <h3 className="card-title text-lg">Donation Amount Verified</h3>
+                      <p className="text-center text-sm">{emailProofResult.donationAmount}</p>
                       <div className="badge badge-primary badge-sm">Soulbound NFT</div>
                     </div>
                   </div>
@@ -314,8 +314,8 @@ export function WikipediaClaim() {
                 <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
                   <div className="card-body items-center">
                     <div className="text-4xl mb-2">📚</div>
-                    <h3 className="card-title text-lg">Email Domain Verified</h3>
-                    <p className="text-center text-sm mb-2">{emailProofResult.emailDomain}</p>
+                    <h3 className="card-title text-lg">Donation Amount Verified</h3>
+                    <p className="text-center text-sm mb-2">{emailProofResult.donationAmount}</p>
                     <div className="flex gap-2">
                       <div className="badge badge-primary badge-sm">Soulbound NFT</div>
                       <div className="badge badge-success badge-sm">vlayer Verified</div>
@@ -332,7 +332,7 @@ export function WikipediaClaim() {
                 <div>
                   <h4 className="font-bold">NFT Details</h4>
                   <p className="text-sm">
-                    Your soulbound NFT represents your verified email proof from {emailProofResult.emailDomain}. 
+                    Your soulbound NFT represents your verified email proof for donation of {emailProofResult.donationAmount}. 
                     It cannot be transferred and serves as permanent proof of verification.
                   </p>
                 </div>

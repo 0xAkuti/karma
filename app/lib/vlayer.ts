@@ -22,7 +22,7 @@ export interface EmailProofResult {
   proof: any
   emailHash: string
   targetWallet: string
-  emailDomain: string
+  donationAmount: string
 }
 
 export interface EmailProofError {
@@ -86,7 +86,7 @@ export class VLayerEmailProver {
         proof: result[0],
         emailHash: result[1],
         targetWallet: result[2],
-        emailDomain: result[3],
+        donationAmount: result[3],
       }
     } catch (error: any) {
       console.error('Error generating email proof:', error)
