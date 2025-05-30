@@ -28,6 +28,12 @@ export const flowTestnet = defineChain({
 export const config = createConfig({
   chains: [flowTestnet],
   transports: {
-    [flowTestnet.id]: http(),
+    [flowTestnet.id]: http('https://testnet.evm.nodes.onflow.org'),
   },
-}) 
+})
+
+declare module '@privy-io/wagmi' {
+  interface Register {
+    config: typeof config
+  }
+} 

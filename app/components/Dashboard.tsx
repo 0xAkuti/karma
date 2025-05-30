@@ -1,6 +1,7 @@
 'use client'
 
 import { usePrivy } from '@privy-io/react-auth'
+import Link from 'next/link'
 import { WalletConnect } from './WalletConnect'
 import { KarmaCard } from './KarmaCard'
 import { Sparkles, Plus, Award, Trophy, Star } from 'lucide-react'
@@ -97,10 +98,10 @@ export function Dashboard() {
         {/* Quick Actions */}
         <div className="mb-8">
           <div className="flex items-center gap-4">
-            <button className="btn btn-primary btn-lg">
+            <Link href="/claim" className="btn btn-primary btn-lg">
               <Plus className="w-5 h-5" />
               Claim New Karma
-            </button>
+            </Link>
             <button className="btn btn-outline">
               <Award className="w-5 h-5" />
               Redeem Karma
@@ -135,10 +136,10 @@ export function Dashboard() {
                   <p className="text-neutral/70 mb-6">
                     Start your journey by claiming your first Karma NFT for a verified good deed.
                   </p>
-                  <button className="btn btn-primary">
+                  <Link href="/claim" className="btn btn-primary">
                     <Plus className="w-5 h-5" />
                     Claim Your First Karma
-                  </button>
+                  </Link>
                 </div>
               </div>
             )}
@@ -149,7 +150,7 @@ export function Dashboard() {
             <h3 className="text-xl font-bold text-neutral mb-6">Supported Projects</h3>
             <div className="space-y-4">
               {supportedProjects.map((project, index) => (
-                <div key={index} className="card bg-base-100 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+                <Link key={index} href="/claim" className="card bg-base-100 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
                   <div className="card-body p-4">
                     <div className="flex items-center gap-3">
                       <div className="text-2xl">{project.icon}</div>
@@ -164,7 +165,7 @@ export function Dashboard() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
 
