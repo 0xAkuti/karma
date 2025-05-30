@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
+import { DebugInfo } from '../components/DebugInfo'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen bg-base-100`}>
         <Providers>
           {children}
+          <DebugInfo />
         </Providers>
       </body>
     </html>
