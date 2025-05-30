@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+The website is developed in the "/app" folder, "/contracts/src" contains the smart contracts, while "/contracts" also contains the vlayer email proof sample project used for reference.
+If you need up to date documentation use context7
