@@ -1,0 +1,1 @@
+# "Karma" for EthGlobal Prague
