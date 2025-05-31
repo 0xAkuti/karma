@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { WagmiProvider } from '@privy-io/wagmi'
 import { config } from '../lib/wagmi'
+import { flowTestnet, anvilLocal } from '../lib/wagmi'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
@@ -16,6 +17,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     console.warn('⚠️ Privy App ID not configured. Please set NEXT_PUBLIC_PRIVY_APP_ID in your .env.local file.')
     console.warn('Get your app ID from: https://console.privy.io')
   }
+
+  // Get the default chain based on environment
+  const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '545')
+  const defaultChain = chainId === 31337 ? anvilLocal : flowTestnet
+  const supportedChains = [flowTestnet, anvilLocal]
 
   return (
     <PrivyProvider
@@ -36,6 +42,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
           createOnLogin: 'users-without-wallets',
           requireUserPasswordOnCreate: false,
         },
+
+        // Network configuration for automatic switching
+        defaultChain: defaultChain,
+        supportedChains: supportedChains,
       }}
     >
       <QueryClientProvider client={queryClient}>

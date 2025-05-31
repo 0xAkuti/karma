@@ -1,31 +1,44 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, FileText, Upload, Zap, Gift, CheckCircle, AlertCircle, ExternalLink, Twitter, RefreshCw } from 'lucide-react'
 import { usePrivy } from '@privy-io/react-auth'
-import { useAccount, useChainId, useSwitchChain } from 'wagmi'
+import { useAccount, useChainId } from 'wagmi'
+import { useWallets } from '@privy-io/react-auth'
+import { useSetActiveWallet } from '@privy-io/wagmi'
 import { EmailProofUpload } from './EmailProofUpload'
 import { EmailProofResult } from '@/lib/vlayer'
-import { mintKarmaNFT, MintNFTResult, generateBlockscoutUrls, generateTwitterShareUrl, getTargetChain } from '@/lib/karma-contracts'
+import { mintKarmaNFT, MintNFTResult, generateBlockscoutUrls, generateTwitterShareUrl, getTargetChain, requestChainSwitch } from '@/lib/karma-contracts'
 
 type ClaimStep = 'instructions' | 'upload' | 'processing' | 'proof' | 'minting' | 'complete'
 
 export function WikipediaClaim() {
-  const { user } = usePrivy()
+  const { user, ready: privyReady, authenticated } = usePrivy()
   const { isConnected } = useAccount()
+  const { wallets } = useWallets()
+  const { setActiveWallet } = useSetActiveWallet()
   const currentChainId = useChainId()
-  const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
   
   const [currentStep, setCurrentStep] = useState<ClaimStep>('instructions')
   const [emailProofResult, setEmailProofResult] = useState<EmailProofResult | null>(null)
   const [mintResult, setMintResult] = useState<MintNFTResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isSwitchingChain, setIsSwitchingChain] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Handle hydration
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Get target chain info
   const targetChain = getTargetChain()
-  const isOnCorrectChain = currentChainId === targetChain.id
+  const isOnCorrectChain = mounted && currentChainId === targetChain.id
+
+  // Check if wallet is actually connected (both Privy and wagmi)
+  const isWalletConnected = mounted && privyReady && authenticated && isConnected && user?.wallet?.address
 
   const handleProofGenerated = (result: EmailProofResult) => {
     console.log('Email proof generated:', result)
@@ -40,11 +53,27 @@ export function WikipediaClaim() {
   }
 
   const handleSwitchChain = async () => {
+    setIsSwitchingChain(true)
     try {
-      await switchChain({ chainId: targetChain.id })
+      // First, try to find a wallet on the target chain
+      const targetWallet = wallets.find(wallet => 
+        wallet.chainId === `eip155:${targetChain.id}`
+      )
+      
+      if (targetWallet) {
+        // Switch to the wallet on the target chain
+        console.log('Switching to wallet on target chain:', targetWallet)
+        await setActiveWallet(targetWallet)
+      } else {
+        // Fallback to manual chain switching for external wallets
+        console.log('No wallet on target chain found, trying manual switch...')
+        await requestChainSwitch(targetChain.id)
+      }
     } catch (error: any) {
       console.error('Chain switch error:', error)
       setError(`Failed to switch to ${targetChain.name}. Please switch manually in your wallet.`)
+    } finally {
+      setIsSwitchingChain(false)
     }
   }
 
@@ -54,7 +83,7 @@ export function WikipediaClaim() {
       return
     }
 
-    if (!isConnected) {
+    if (!isWalletConnected) {
       setError('Please connect your wallet first')
       return
     }
@@ -112,13 +141,18 @@ export function WikipediaClaim() {
   }
 
   const renderNetworkAlert = () => {
-    if (!isConnected) {
+    // Don't show anything during hydration
+    if (!mounted || !privyReady) {
+      return null
+    }
+
+    if (!authenticated || !isWalletConnected) {
       return (
         <div className="alert alert-warning mb-6">
           <AlertCircle className="w-5 h-5" />
           <div>
             <h4 className="font-bold">Wallet Not Connected</h4>
-            <p className="text-sm">Please connect your wallet to continue</p>
+            <p className="text-sm">Please connect your wallet using the button in the top right to continue</p>
           </div>
         </div>
       )
@@ -192,7 +226,7 @@ export function WikipediaClaim() {
   }
 
   return (
-    <div>
+    <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <Link href="/claim" className="btn btn-ghost btn-circle">
@@ -375,7 +409,7 @@ export function WikipediaClaim() {
               <div className="card-actions justify-center">
                 <button 
                   onClick={handleMintNFT}
-                  disabled={isProcessing || !user?.wallet?.address || !isConnected || !isOnCorrectChain}
+                  disabled={isProcessing || !user?.wallet?.address || !isWalletConnected || !isOnCorrectChain}
                   className="btn btn-primary btn-lg"
                 >
                   <Gift className="w-5 h-5" />
@@ -383,17 +417,17 @@ export function WikipediaClaim() {
                 </button>
               </div>
 
-              {!isConnected && (
+              {!isWalletConnected && mounted && (
                 <div className="alert alert-warning max-w-md mx-auto">
                   <AlertCircle className="w-5 h-5" />
                   <div>
                     <h4 className="font-bold">Wallet Required</h4>
-                    <p className="text-sm">Please connect your wallet to mint the NFT</p>
+                    <p className="text-sm">Please connect your wallet using the button in the top right to mint the NFT</p>
                   </div>
                 </div>
               )}
 
-              {isConnected && !isOnCorrectChain && (
+              {isWalletConnected && !isOnCorrectChain && mounted && (
                 <div className="alert alert-error max-w-md mx-auto">
                   <AlertCircle className="w-5 h-5" />
                   <div>

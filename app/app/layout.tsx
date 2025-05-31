@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import { DebugInfo } from '../components/DebugInfo'
+import { Header } from '../components/Header'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -27,7 +28,12 @@ export default function RootLayout({
     <html lang="en" data-theme="karma">
       <body className={`${inter.className} min-h-screen bg-base-100`}>
         <Providers>
-          {children}
+          <div className="min-h-screen flex flex-col">
+            <Header />
+            <main className="flex-1">
+              {children}
+            </main>
+          </div>
           <DebugInfo />
         </Providers>
       </body>
