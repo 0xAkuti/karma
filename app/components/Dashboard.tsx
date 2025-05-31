@@ -5,47 +5,77 @@ import Link from 'next/link'
 import { KarmaCard } from './KarmaCard'
 import { Sparkles, Plus, Award, Trophy, Star, Target } from 'lucide-react'
 
-// Mock data for development
+// Mock data for development - using actual NFT images
 const mockKarmaNFTs = [
   {
     id: 1,
-    title: 'Wikipedia Donation',
-    description: 'Donated $50 to Wikipedia Foundation',
-    category: 'Education',
-    karmaPoints: 100,
-    dateEarned: '2024-01-15',
-    imageUrl: '/karma-badges/wikipedia.png',
+    title: 'Time Volunteer at ETHGlobal',
+    description: 'Volunteered 8 hours at ETHGlobal Prague hackathon helping developers',
+    category: 'Time',
+    karmaPoints: 200,
+    dateEarned: '2025-05-15',
+    imageUrl: '/nft/Time-ethglobal.png',
     verified: true,
   },
   {
     id: 2,
-    title: 'Open Source Contributor',
-    description: 'Contributed to React documentation',
-    category: 'Technology',
+    title: 'Knowledge Sharing on GitHub',
+    description: 'Contributed to open source documentation and helped 50+ developers',
+    category: 'Knowledge',
     karmaPoints: 150,
-    dateEarned: '2024-01-10',
-    imageUrl: '/karma-badges/opensource.png',
+    dateEarned: '2025-05-10',
+    imageUrl: '/nft/knowledge-github.png',
     verified: true,
   },
   {
     id: 3,
-    title: 'Red Cross Blood Donation',
-    description: 'Donated blood at local Red Cross center',
-    category: 'Health',
-    karmaPoints: 200,
-    dateEarned: '2024-01-05',
-    imageUrl: '/karma-badges/blood-donation.png',
+    title: 'Gift to Wikipedia Foundation',
+    description: 'Donated $100 to support free knowledge for everyone',
+    category: 'Gift',
+    karmaPoints: 180,
+    dateEarned: '2025-05-08',
+    imageUrl: '/nft/gift-wiki.png',
+    verified: true,
+  },
+  {
+    id: 4,
+    title: 'Ecology Conservation via iNaturalist',
+    description: 'Documented 25 species and contributed to biodiversity research',
+    category: 'Ecology',
+    karmaPoints: 120,
+    dateEarned: '2025-05-05',
+    imageUrl: '/nft/ecology-inaturalist.png',
+    verified: true,
+  },
+  {
+    id: 5,
+    title: 'Animal Care at Psi Zivot Shelter',
+    description: 'Volunteered at Psi Zivot animal shelter caring for rescued cats and dogs',
+    category: 'Care',
+    karmaPoints: 250,
+    dateEarned: '2025-05-03',
+    imageUrl: '/nft/care-NTF.png',
+    verified: true,
+  },
+  {
+    id: 6,
+    title: 'Access to Knowledge via Sci-Hub',
+    description: 'Helped make 15 research papers accessible to underserved communities',
+    category: 'Access',
+    karmaPoints: 175,
+    dateEarned: '2025-05-01',
+    imageUrl: '/nft/access-scihub.png',
     verified: true,
   },
 ]
 
 const supportedProjects = [
-  { name: 'Wikipedia Donations', category: 'Education', icon: '📚', estimatedKarma: '50-200' },
-  { name: 'Red Cross Blood Donations', category: 'Health', icon: '🩸', estimatedKarma: '150-300' },
-  { name: 'Devcon Volunteering', category: 'Technology', icon: '🛠️', estimatedKarma: '100-250' },
-  { name: 'Open Source Contributions', category: 'Technology', icon: '💻', estimatedKarma: '75-400' },
-  { name: 'Environmental Actions', category: 'Environment', icon: '🌱', estimatedKarma: '80-180' },
-  { name: 'Community Service', category: 'Community', icon: '🤝', estimatedKarma: '100-300' },
+  { name: 'Wikipedia Donations', category: 'Gift', icon: '📚', estimatedKarma: '50-200' },
+  { name: 'ETHGlobal Volunteering', category: 'Time', icon: '🛠️', estimatedKarma: '100-250' },
+  { name: 'Open Source Contributions', category: 'Knowledge', icon: '💻', estimatedKarma: '75-400' },
+  { name: 'iNaturalist Species Documentation', category: 'Ecology', icon: '🌱', estimatedKarma: '80-180' },
+  { name: 'Animal Shelter Volunteering', category: 'Care', icon: '🐕', estimatedKarma: '100-300' },
+  { name: 'Research Paper Access', category: 'Access', icon: '🔬', estimatedKarma: '90-220' },
 ]
 
 export function Dashboard() {
@@ -104,7 +134,10 @@ export function Dashboard() {
         {/* Left Column - Karma NFTs */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
+            <div>
             <h2 className="text-2xl font-bold text-neutral">Your Karma Collection</h2>
+              <p className="text-sm text-neutral/60 mt-1">Past karma NFTs earned through verified good deeds</p>
+            </div>
             <div className="badge badge-primary badge-lg">
               <Star className="w-4 h-4 mr-1" />
               {mockKarmaNFTs.length} NFTs
@@ -112,7 +145,7 @@ export function Dashboard() {
           </div>
 
           {mockKarmaNFTs.length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
               {mockKarmaNFTs.map((nft) => (
                 <KarmaCard key={nft.id} nft={nft} />
               ))}
