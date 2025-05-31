@@ -6,6 +6,7 @@ import "forge-std/console.sol";
 import "../src/EmailDomainProver.sol";
 import "../src/KarmaProofVerifier.sol";
 import "../src/KarmaNFT.sol";
+import "../src/KarmaToken.sol";
 
 contract DeployVlayerContracts is Script {
 
@@ -24,22 +25,25 @@ contract DeployVlayerContracts is Script {
         EmailDomainProver prover = new EmailDomainProver();        
         // Deploy KarmaNFT        
         KarmaNFT karmaNFT = new KarmaNFT(ETHGLOBAL_DEPLOYER, "https://faucet.vlayer.xyz/api/xBadgeMeta?handle=");
-        
+        // Deploy KarmaToken
+        KarmaToken karmaToken = new KarmaToken(ETHGLOBAL_DEPLOYER);
         // Debug ownership
         console.log("KarmaNFT owner:", karmaNFT.owner());
         console.log("Current msg.sender:", msg.sender);
         
         // Deploy KarmaProofVerifier with prover and karmaNFT addresses
-        KarmaProofVerifier karmaVerifier = new KarmaProofVerifier(address(prover), address(karmaNFT));
+        KarmaProofVerifier karmaVerifier = new KarmaProofVerifier(address(prover), address(karmaNFT), address(karmaToken));
 
         // Grant MINTER_ROLE to the verifier contract so it can mint NFTs
         console.log("Granting MINTER_ROLE to verifier...");
         console.log("MINTER_ROLE value:", karmaNFT.MINTER_ROLE());
         karmaNFT.grantRoles(address(karmaVerifier), karmaNFT.MINTER_ROLE());
+        karmaToken.grantRoles(address(karmaVerifier), karmaToken.MINTER_ROLE());
         
         // Verify deployment
         require(karmaVerifier.prover() == address(prover), "KarmaVerifier prover address mismatch");
         require(karmaVerifier.karmaNFT() == address(karmaNFT), "KarmaVerifier karmaNFT address mismatch");
+        require(karmaVerifier.karmaToken() == address(karmaToken), "KarmaVerifier karmaToken address mismatch");
         
         vm.stopBroadcast();
         
@@ -52,13 +56,15 @@ contract DeployVlayerContracts is Script {
         console.log("EmailDomainProver:    %s", address(prover));
         console.log("KarmaProofVerifier:   %s", address(karmaVerifier)); 
         console.log("KarmaNFT:             %s", address(karmaNFT));
+        console.log("KarmaToken:           %s", address(karmaToken));
         console.log("");
         console.log("Add these to your app/.env.local file:");
         console.log("NEXT_PUBLIC_CHAIN_ID=%s", vm.toString(block.chainid));
         console.log("NEXT_PUBLIC_VLAYER_PROVER_CONTRACT_ADDRESS=%s", vm.toString(address(prover)));
         console.log("NEXT_PUBLIC_VLAYER_VERIFIER_CONTRACT_ADDRESS=%s", vm.toString(address(karmaVerifier)));        
         console.log("NEXT_PUBLIC_KARMA_NFT_CONTRACT=%s", vm.toString(address(karmaNFT)));
-        
+        console.log("NEXT_PUBLIC_KARMA_TOKEN_CONTRACT=%s", vm.toString(address(karmaToken)));
+
         if (block.chainid == 31337) {
             console.log("NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545");
             console.log("NEXT_PUBLIC_BLOCKSCOUT_API_URL=http://localhost:8545/api");
@@ -69,6 +75,11 @@ contract DeployVlayerContracts is Script {
             console.log("NEXT_PUBLIC_BLOCKSCOUT_API_URL=https://testnet.flowdiver.io/api");
             console.log("");
             console.log("Note: Running on Flow Testnet - make sure your wallet is connected to Flow Testnet");
+        } else if (block.chainid == 84532) {
+            console.log("NEXT_PUBLIC_RPC_URL=https://base-sepolia.g.alchemy.com/v2/demo");
+            console.log("NEXT_PUBLIC_BLOCKSCOUT_API_URL=https://base-sepolia.blockscout.com/api");
+            console.log("");
+            console.log("Note: Running on Base Sepolia - make sure your wallet is connected to Base Sepolia");
         }
     }
     

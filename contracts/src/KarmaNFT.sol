@@ -48,11 +48,11 @@ contract KarmaNFT is ERC721, OwnableRoles, IERC5484 {
     }
 
     function name() public view virtual override returns (string memory) {
-        return "Karma NFT";
+        return "Verified Karma Proof";
     }
 
     function symbol() public view virtual override returns (string memory) {
-        return "KARMA";
+        return "VKP";
     }
 
     // ---- ERC721 soulbound overrides ----
