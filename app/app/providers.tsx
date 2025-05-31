@@ -2,13 +2,53 @@
 
 import { PrivyProvider } from '@privy-io/react-auth'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { WagmiProvider } from '@privy-io/wagmi'
+import { NotificationProvider, TransactionPopupProvider } from '@blockscout/app-sdk'
 import { config } from '../lib/wagmi'
 import { flowTestnet, anvilLocal } from '../lib/wagmi'
+import { TransactionPopupListener } from '../components/TransactionPopupListener'
+import { TransactionNotificationManager } from '../components/TransactionNotificationManager'
+
+console.log('Providers.tsx is loading...')
+
+// Blockscout wrapper component
+function BlockscoutProviders({ children }: { children: React.ReactNode }) {
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+    console.log('BlockscoutProviders mounted')
+  }, [])
+
+  console.log('BlockscoutProviders rendering, isMounted:', isMounted)
+
+  if (!isMounted) {
+    console.log('BlockscoutProviders not mounted yet, returning children')
+    return <>{children}</>
+  }
+
+  try {
+    console.log('Rendering Blockscout providers...')
+    return (
+      <NotificationProvider>
+        <TransactionPopupProvider>
+          <TransactionPopupListener />
+          <TransactionNotificationManager />
+          {children}
+        </TransactionPopupProvider>
+      </NotificationProvider>
+    )
+  } catch (error) {
+    console.error('Error rendering Blockscout providers:', error)
+    return <>{children}</>
+  }
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
+
+  console.log('Main Providers rendering...')
 
   // Get Privy App ID from environment with validation
   const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID
@@ -50,7 +90,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={config}>
-          {children}
+          <BlockscoutProviders>
+            {children}
+          </BlockscoutProviders>
         </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>

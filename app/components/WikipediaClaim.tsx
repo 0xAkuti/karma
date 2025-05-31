@@ -79,12 +79,7 @@ export function WikipediaClaim() {
 
   const handleMintNFT = async () => {
     if (!emailProofResult || !user?.wallet?.address) {
-      setError('Missing proof data or wallet connection')
-      return
-    }
-
-    if (!isWalletConnected) {
-      setError('Please connect your wallet first')
+      setError('Missing required data for minting')
       return
     }
 
@@ -108,6 +103,18 @@ export function WikipediaClaim() {
       }, user.wallet.address)
       
       console.log('NFT minting successful:', result)
+      
+      // Show transaction toast notification
+      const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '545'
+      const event = new CustomEvent('showTransactionToast', {
+        detail: {
+          chainId,
+          txHash: result.transactionHash,
+        }
+      })
+      
+      window.dispatchEvent(event)
+      
       setMintResult(result)
       setCurrentStep('complete')
     } catch (error: any) {
