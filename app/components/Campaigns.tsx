@@ -71,29 +71,30 @@ const mockUserStats: UserStats = {
 const mockChallenges: Challenge[] = [
   {
     id: '1',
-    title: 'Red Cross Blood Drive Challenge',
-    description: 'Donate blood at any Red Cross center and help save lives',
-    category: 'Health',
+    title: 'Blood Donation Drive',
+    description: 'Donate blood at participating Red Cross centers this month',
+    category: 'Care',
     difficulty: 'Medium',
-    karmaReward: 400,
+    karmaReward: 250,
     bonusMultiplier: 1.5,
-    deadline: '2025-06-15', // World Blood Donor Day
+    deadline: '2025-06-30',
     isCompleted: false,
     isLocked: false,
     progress: 0,
     maxProgress: 1,
     icon: '🩸',
     type: 'special',
-    organization: 'American Red Cross'
+    organization: 'Red Cross International'
   },
   {
     id: '2',
-    title: 'Wikipedia Knowledge Campaign',
-    description: 'Support Wikipedia\'s mission by making a donation to keep knowledge free',
-    category: 'Education',
+    title: 'Wikipedia Article Enhancement',
+    description: 'Improve Wikipedia articles with citations and content',
+    category: 'Knowledge',
     difficulty: 'Easy',
-    karmaReward: 250,
-    deadline: '2025-06-30',
+    karmaReward: 150,
+    bonusMultiplier: 2,
+    deadline: '2025-06-22',
     isCompleted: false,
     isLocked: false,
     progress: 1,
@@ -104,20 +105,20 @@ const mockChallenges: Challenge[] = [
   },
   {
     id: '3',
-    title: 'iNaturalist Biodiversity Challenge',
-    description: 'Upload photos of 5 new species to help scientists track biodiversity',
-    category: 'Environment',
+    title: 'Community Garden Project',
+    description: 'Help establish community gardens in urban areas',
+    category: 'Ecology',
     difficulty: 'Hard',
     karmaReward: 300,
     bonusMultiplier: 2,
-    deadline: '2025-07-31', // Summer biodiversity season
+    deadline: '2025-03-01',
     isCompleted: false,
     isLocked: false,
     progress: 2,
     maxProgress: 5,
-    icon: '🌿',
+    icon: '🌱',
     type: 'special',
-    organization: 'iNaturalist'
+    organization: 'Urban Green Initiative'
   }
 ]
 
@@ -297,7 +298,7 @@ export function Campaigns() {
                   <div className="flex items-center gap-3">
                     <div className="text-2xl">🩸</div>
                     <div>
-                      <h4 className="font-semibold">American Red Cross</h4>
+                      <h4 className="font-semibold">Red Cross International</h4>
                       <p className="text-sm text-neutral/70">Emergency assistance, disaster relief</p>
                     </div>
                   </div>
@@ -317,10 +318,10 @@ export function Campaigns() {
               <div className="card bg-base-200 shadow-sm">
                 <div className="card-body p-4">
                   <div className="flex items-center gap-3">
-                    <div className="text-2xl">🌿</div>
+                    <div className="text-2xl">🌱</div>
                     <div>
-                      <h4 className="font-semibold">iNaturalist</h4>
-                      <p className="text-sm text-neutral/70">Citizen science for biodiversity</p>
+                      <h4 className="font-semibold">Urban Green Initiative</h4>
+                      <p className="text-sm text-neutral/70">Community gardens for sustainability</p>
                     </div>
                   </div>
                 </div>
@@ -337,7 +338,7 @@ export function Campaigns() {
               >
                 All Challenges
               </button>
-              {['Health', 'Education', 'Environment'].map(category => (
+              {['Care', 'Knowledge', 'Ecology'].map(category => (
                 <button 
                   key={category}
                   className={`btn btn-sm ${selectedCategory === category.toLowerCase() ? 'btn-primary' : 'btn-outline'}`}

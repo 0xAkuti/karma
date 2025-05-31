@@ -97,14 +97,15 @@ const mockLeaderboardData: LeaderboardUser[] = [
   }
 ]
 
-const categories = ['Education', 'Health', 'Technology', 'Environment', 'Community']
+const categories = ['Time', 'Care', 'Gift', 'Knowledge', 'Ecology', 'Access']
 
 const categoryIcons = {
-  Education: '📚',
-  Health: '🏥',
-  Technology: '💻',
-  Environment: '🌱',
-  Community: '🤝'
+  Time: '⏰',
+  Care: '💚',
+  Gift: '🎁',
+  Knowledge: '📚',
+  Ecology: '🌱',
+  Access: '🔓'
 }
 
 const categoryColors = {
@@ -116,7 +117,7 @@ const categoryColors = {
 }
 
 export function Leaderboard() {
-  const [selectedCategory, setSelectedCategory] = useState<string>('Education')
+  const [selectedCategory, setSelectedCategory] = useState<string>('Time')
   const [selectedTab, setSelectedTab] = useState<'total' | 'weekly' | 'categories'>('total')
 
   const getRankIcon = (rank: number) => {
@@ -157,11 +158,12 @@ export function Leaderboard() {
   const categoryDistribution = categories.map(category => {
     const totalCategoryKarma = mockLeaderboardData.reduce((sum, user) => sum + (user.categories[category] || 0), 0)
     const colorMap = {
-      'Education': 'bg-info',
-      'Health': 'bg-error', 
-      'Technology': 'bg-secondary',
-      'Environment': 'bg-success',
-      'Community': 'bg-warning'
+      'Time': 'bg-info',
+      'Care': 'bg-error', 
+      'Gift': 'bg-secondary',
+      'Knowledge': 'bg-success',
+      'Ecology': 'bg-warning',
+      'Access': 'bg-primary'
     }
     return {
       name: category,
@@ -237,7 +239,7 @@ export function Leaderboard() {
         totalKarma={totalKarmaDistributed}
         weeklyActiveUsers={342}
         newUsersThisWeek={89}
-        topCategoryThisWeek="Health"
+        topCategoryThisWeek="Knowledge"
         averageKarmaPerUser={Math.round(totalKarmaDistributed / totalUsers)}
       />
 

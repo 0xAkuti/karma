@@ -20,7 +20,7 @@ const projects: Project[] = [
     name: 'Wikipedia Donation',
     description: 'Support free knowledge by donating to Wikipedia',
     icon: '📚',
-    category: 'Education',
+    category: 'Knowledge',
     karmaReward: '50-500 Karma',
     status: 'active',
     difficulty: 'easy'
@@ -30,7 +30,7 @@ const projects: Project[] = [
     name: 'Red Cross Blood Donation',
     description: 'Save lives by donating blood through Red Cross',
     icon: '🩸',
-    category: 'Healthcare',
+    category: 'Care',
     karmaReward: '300 Karma',
     status: 'coming-soon',
     difficulty: 'medium'
@@ -40,7 +40,7 @@ const projects: Project[] = [
     name: 'Devcon Volunteer',
     description: 'Volunteer at Devcon blockchain conference',
     icon: '⚡',
-    category: 'Technology',
+    category: 'Time',
     karmaReward: '200-800 Karma',
     status: 'coming-soon',
     difficulty: 'medium'
@@ -50,7 +50,7 @@ const projects: Project[] = [
     name: 'ETHGlobal Volunteer',
     description: 'Help organize ETHGlobal hackathons',
     icon: '🌐',
-    category: 'Technology',
+    category: 'Time',
     karmaReward: '150-600 Karma',
     status: 'coming-soon',
     difficulty: 'medium'
@@ -59,8 +59,8 @@ const projects: Project[] = [
     id: 'beach-cleanup',
     name: 'Beach Cleanup',
     description: 'Join organized beach cleaning events',
-    icon: '🏖️',
-    category: 'Environment',
+    icon: '��️',
+    category: 'Ecology',
     karmaReward: '100-400 Karma',
     status: 'coming-soon',
     difficulty: 'easy'
@@ -70,7 +70,7 @@ const projects: Project[] = [
     name: 'Food Bank Volunteer',
     description: 'Help distribute food to those in need',
     icon: '🍎',
-    category: 'Social Impact',
+    category: 'Access',
     karmaReward: '150-350 Karma',
     status: 'coming-soon',
     difficulty: 'easy'
@@ -78,11 +78,11 @@ const projects: Project[] = [
 ]
 
 const categoryColors = {
-  'Education': 'badge-primary',
-  'Healthcare': 'badge-error',
-  'Technology': 'badge-info',
-  'Environment': 'badge-success',
-  'Social Impact': 'badge-warning'
+  'Knowledge': 'badge-info',
+  'Care': 'badge-error',
+  'Time': 'badge-primary',
+  'Ecology': 'badge-success',
+  'Access': 'badge-warning'
 }
 
 const difficultyColors = {
@@ -274,11 +274,11 @@ function SubmitProjectModal({ onClose }: { onClose: () => void }) {
                 required
               >
                 <option value="">Choose category</option>
-                <option value="Education">Education</option>
-                <option value="Healthcare">Healthcare</option>
-                <option value="Environment">Environment</option>
-                <option value="Social Impact">Social Impact</option>
-                <option value="Technology">Technology</option>
+                <option value="Knowledge">Knowledge</option>
+                <option value="Care">Care</option>
+                <option value="Time">Time</option>
+                <option value="Ecology">Ecology</option>
+                <option value="Access">Access</option>
                 <option value="Other">Other</option>
               </select>
             </div>

@@ -18,100 +18,100 @@ interface AchievementBadgesProps {
 }
 
 const badgeDefinitions: { [key: string]: Badge } = {
-  'Pioneer': {
-    id: 'pioneer',
-    name: 'Pioneer',
-    description: 'One of the first 100 users',
+  'Early Adopter': {
+    id: 'early-adopter',
+    name: 'Early Adopter',
+    description: 'Among the first 100 users',
     icon: <Crown className="w-4 h-4" />,
     rarity: 'legendary',
     category: 'Special'
   },
-  'Philanthropist': {
-    id: 'philanthropist', 
-    name: 'Philanthropist',
-    description: 'Donated over $1000 total',
+  'Generous Giver': {
+    id: 'generous-giver',
+    name: 'Generous Giver',
+    description: 'Made over 10 donations',
     icon: <Heart className="w-4 h-4" />,
     rarity: 'epic',
-    category: 'Giving'
+    category: 'Gift'
   },
   'Tech Contributor': {
     id: 'tech-contributor',
     name: 'Tech Contributor',
-    description: 'Contributed to 10+ tech projects',
+    description: 'Contributed to 5+ open source projects',
     icon: <Code className="w-4 h-4" />,
     rarity: 'rare',
-    category: 'Technology'
-  },
-  'Health Hero': {
-    id: 'health-hero',
-    name: 'Health Hero',
-    description: 'Completed 5+ health-related good deeds',
-    icon: <Shield className="w-4 h-4" />,
-    rarity: 'rare',
-    category: 'Health'
-  },
-  'Educator': {
-    id: 'educator',
-    name: 'Educator',
-    description: 'Supported educational causes',
-    icon: <Star className="w-4 h-4" />,
-    rarity: 'common',
-    category: 'Education'
-  },
-  'Green Guardian': {
-    id: 'green-guardian',
-    name: 'Green Guardian',
-    description: 'Dedicated to environmental causes',
-    icon: <Leaf className="w-4 h-4" />,
-    rarity: 'rare',
-    category: 'Environment'
-  },
-  'Climate Champion': {
-    id: 'climate-champion',
-    name: 'Climate Champion',
-    description: 'Earned 1000+ environment karma',
-    icon: <Leaf className="w-4 h-4" />,
-    rarity: 'epic',
-    category: 'Environment'
-  },
-  'Code Contributor': {
-    id: 'code-contributor',
-    name: 'Code Contributor',
-    description: 'Open source contributor',
-    icon: <Code className="w-4 h-4" />,
-    rarity: 'common',
-    category: 'Technology'
-  },
-  'Open Source Hero': {
-    id: 'open-source-hero',
-    name: 'Open Source Hero',
-    description: 'Major open source contributions',
-    icon: <Star className="w-4 h-4" />,
-    rarity: 'epic',
-    category: 'Technology'
-  },
-  'Medical Volunteer': {
-    id: 'medical-volunteer',
-    name: 'Medical Volunteer',
-    description: 'Volunteered in medical contexts',
-    icon: <Heart className="w-4 h-4" />,
-    rarity: 'rare',
-    category: 'Health'
+    category: 'Knowledge'
   },
   'Life Saver': {
     id: 'life-saver',
     name: 'Life Saver',
-    description: 'Life-saving contributions',
+    description: 'Donated blood 3+ times',
     icon: <Shield className="w-4 h-4" />,
     rarity: 'epic',
-    category: 'Health'
+    category: 'Care'
   },
-  'Newcomer': {
-    id: 'newcomer',
-    name: 'Newcomer',
-    description: 'Welcome to Karma!',
-    icon: <HandHeart className="w-4 h-4" />,
+  'Knowledge Educator': {
+    id: 'educator',
+    name: 'Knowledge Educator',
+    description: 'Verified educational contributions',
+    icon: <Star className="w-4 h-4" />,
     rarity: 'common',
+    category: 'Knowledge'
+  },
+  'Eco Warrior': {
+    id: 'eco-warrior',
+    name: 'Eco Warrior',
+    description: 'Environmental impact verified',
+    icon: <Leaf className="w-4 h-4" />,
+    rarity: 'rare',
+    category: 'Ecology'
+  },
+  'Green Champion': {
+    id: 'green-champion',
+    name: 'Green Champion',
+    description: 'Planted 100+ trees or equivalent',
+    icon: <Leaf className="w-4 h-4" />,
+    rarity: 'epic',
+    category: 'Ecology'
+  },
+  'Code Ninja': {
+    id: 'code-ninja',
+    name: 'Code Ninja',
+    description: 'Exceptional coding contributions',
+    icon: <Code className="w-4 h-4" />,
+    rarity: 'common',
+    category: 'Knowledge'
+  },
+  'Dev Mentor': {
+    id: 'dev-mentor',
+    name: 'Dev Mentor',
+    description: 'Mentored 10+ developers',
+    icon: <HandHeart className="w-4 h-4" />,
+    rarity: 'rare',
+    category: 'Knowledge'
+  },
+  'Health Advocate': {
+    id: 'health-advocate',
+    name: 'Health Advocate',
+    description: 'Health-related volunteer work',
+    icon: <Heart className="w-4 h-4" />,
+    rarity: 'rare',
+    category: 'Care'
+  },
+  'Wellness Champion': {
+    id: 'wellness-champion',
+    name: 'Wellness Champion',
+    description: 'Promoted community wellness',
+    icon: <Heart className="w-4 h-4" />,
+    rarity: 'rare',
+    category: 'Care'
+  },
+  'Karma Legend': {
+    id: 'karma-legend',
+    name: 'Karma Legend',
+    description: 'Earned over 10,000 karma points',
+    icon: <Crown className="w-4 h-4" />,
+    rarity: 'legendary',
     category: 'Special'
   }
 }
