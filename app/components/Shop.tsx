@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { ShoppingBag, Gift, Star, Clock, Check, ExternalLink, Zap, Coffee, Ticket, CreditCard, UserPlus, AlertTriangle, Loader2, CheckCircle, XCircle } from 'lucide-react'
-import { usePrivy, useSignMessage } from '@privy-io/react-auth'
+import { usePrivy, useSignMessage as usePrivySignMessage } from '@privy-io/react-auth'
+import { useSignMessage as useWagmiSignMessage } from 'wagmi'
 import { RedemptionModal } from './RedemptionModal'
 
 interface Reward {
@@ -171,16 +172,21 @@ const PARTNER_API_KEY = process.env.NEXT_PUBLIC_BLOCKSCOUT_API_KEY || 'demo-key'
 
 export function Shop() {
   const { ready, authenticated, user } = usePrivy()
-  const { signMessage } = useSignMessage({
+  
+  // Privy sign message for embedded wallets
+  const { signMessage: signMessagePrivy } = usePrivySignMessage({
     onSuccess: (result) => {
-      console.log('Message signed successfully:', result)
+      console.log('Message signed successfully with Privy:', result)
     },
     onError: (error) => {
-      console.error('Failed to sign message:', error)
+      console.error('Failed to sign message with Privy:', error)
       setMeritsError('Failed to sign message. Please try again.')
       setIsSigningUp(false)
     }
   })
+
+  // Wagmi sign message for external wallets
+  const { signMessageAsync: signMessageWagmi } = useWagmiSignMessage()
   
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [userKarma, setUserKarma] = useState(450) // Mock user karma - in real app this would come from context/props
@@ -206,6 +212,10 @@ export function Shop() {
 
   // Get user address from Privy
   const userAddress = authenticated && user?.wallet?.address ? user.wallet.address : ''
+
+  // Detect wallet type - embedded vs external
+  const isEmbeddedWallet = user?.wallet?.walletClientType === 'privy'
+  const isExternalWallet = user?.wallet?.connectorType && user?.wallet?.connectorType !== 'embedded'
 
   // Check Blockscout user when wallet connects
   useEffect(() => {
@@ -279,6 +289,29 @@ export function Shop() {
     return response.json()
   }
 
+  // Universal sign message function that works with both embedded and external wallets
+  const signMessage = async (message: string): Promise<string> => {
+    try {
+      if (isEmbeddedWallet) {
+        console.log('Using Privy embedded wallet signing')
+        const signature = await signMessagePrivy(message)
+        return signature
+      } else if (isExternalWallet) {
+        console.log('Using external wallet signing via Wagmi')
+        const signature = await signMessageWagmi({ 
+          message,
+          account: userAddress as `0x${string}`
+        })
+        return signature
+      } else {
+        throw new Error('No wallet detected or unsupported wallet type')
+      }
+    } catch (error) {
+      console.error('Failed to sign message:', error)
+      throw error
+    }
+  }
+
   // Sign up for Blockscout Merits directly in our app
   const handleSignUpForMerits = async () => {
     if (!userAddress) {
@@ -310,7 +343,7 @@ Nonce: ${nonce}
 Issued At: ${currentTime}
 Expiration Time: ${expirationTime}`
 
-      // Step 3: Sign the message using Privy's useSignMessage hook
+      // Step 3: Sign the message using the universal sign function
       const signature = await signMessage(message)
 
       // Step 4: Login/Register with Blockscout
@@ -550,6 +583,11 @@ Expiration Time: ${expirationTime}`
                 ) : (
                   <>
                     {meritsError} Sign up now to start earning Merits!
+                    {(isEmbeddedWallet || isExternalWallet) && (
+                      <div className="text-xs mt-1 opacity-75">
+                        Using {isEmbeddedWallet ? 'embedded' : 'external'} wallet ({user?.wallet?.connectorType || 'unknown'})
+                      </div>
+                    )}
                   </>
                 )}
               </div>
