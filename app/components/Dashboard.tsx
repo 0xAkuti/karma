@@ -85,10 +85,10 @@ export function Dashboard() {
             <Plus className="w-5 h-5" />
             Claim New Karma
           </Link>
-          <button className="btn btn-outline">
+          <Link href="/shop" className="btn btn-outline">
             <Award className="w-5 h-5" />
             Redeem Karma
-          </button>
+          </Link>
           <Link href="/leaderboard" className="btn btn-outline">
             <Trophy className="w-5 h-5" />
             View Leaderboard

@@ -24,6 +24,9 @@ export function Header() {
           <Link href="/leaderboard" className="btn btn-ghost btn-sm">
             Leaderboard
           </Link>
+          <Link href="/shop" className="btn btn-ghost btn-sm">
+            Shop
+          </Link>
         </div>
       </div>
       <div className="navbar-end">
