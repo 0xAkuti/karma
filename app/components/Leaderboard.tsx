@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Trophy, TrendingUp, Medal, Star, ChevronUp, ChevronDown, Flame, Award, Users, BarChart3 } from 'lucide-react'
 import { LeaderboardStats } from './LeaderboardStats'
 import { KarmaDistributionChart } from './KarmaDistributionChart'
+import { AchievementBadges } from './AchievementBadges'
 
 // Mock data for leaderboard
 interface LeaderboardUser {
@@ -155,10 +156,17 @@ export function Leaderboard() {
   // Calculate category distribution for the chart
   const categoryDistribution = categories.map(category => {
     const totalCategoryKarma = mockLeaderboardData.reduce((sum, user) => sum + (user.categories[category] || 0), 0)
+    const colorMap = {
+      'Education': 'bg-info',
+      'Health': 'bg-error', 
+      'Technology': 'bg-secondary',
+      'Environment': 'bg-success',
+      'Community': 'bg-warning'
+    }
     return {
       name: category,
       value: totalCategoryKarma,
-      color: `bg-${categoryColors[category as keyof typeof categoryColors].replace('badge-', '')}`,
+      color: colorMap[category as keyof typeof colorMap] || 'bg-primary',
       icon: categoryIcons[category as keyof typeof categoryIcons]
     }
   }).sort((a, b) => b.value - a.value)
@@ -197,7 +205,7 @@ export function Leaderboard() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="avatar">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-2xl">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-3xl leading-none pt-1">
                       {currentUser.avatar}
                     </div>
                   </div>
@@ -300,7 +308,7 @@ export function Leaderboard() {
                           <td>
                             <div className="flex items-center gap-3">
                               <div className="avatar">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg leading-none pt-0.5">
                                   {user.avatar}
                                 </div>
                               </div>
@@ -327,14 +335,7 @@ export function Leaderboard() {
                             </div>
                           </td>
                           <td>
-                            <div className="flex gap-1 flex-wrap">
-                              {user.badges.slice(0, 2).map((badge, idx) => (
-                                <div key={idx} className="badge badge-outline badge-sm">{badge}</div>
-                              ))}
-                              {user.badges.length > 2 && (
-                                <div className="badge badge-ghost badge-sm">+{user.badges.length - 2}</div>
-                              )}
-                            </div>
+                            <AchievementBadges badges={user.badges} />
                           </td>
                         </tr>
                       ))}
@@ -382,7 +383,7 @@ export function Leaderboard() {
                           <td>
                             <div className="flex items-center gap-3">
                               <div className="avatar">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg leading-none pt-0.5">
                                   {user.avatar}
                                 </div>
                               </div>
@@ -464,7 +465,7 @@ export function Leaderboard() {
                             <td>
                               <div className="flex items-center gap-3">
                                 <div className="avatar">
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg leading-none pt-0.5">
                                     {user.avatar}
                                   </div>
                                 </div>
