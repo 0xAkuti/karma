@@ -76,41 +76,180 @@ export const KARMA_PROOF_VERIFIER_ABI = [
     "type": "function",
     "name": "verify",
     "inputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "components": [
-          {
-            "name": "seal",
+        {
+            "name": "",
             "type": "tuple",
+            "internalType": "struct Proof",
             "components": [
-              { "name": "verifierSelector", "type": "bytes4" },
-              { "name": "seal", "type": "bytes32[8]" },
-              { "name": "mode", "type": "uint8" }
+                {
+                    "name": "seal",
+                    "type": "tuple",
+                    "internalType": "struct Seal",
+                    "components": [
+                        {
+                            "name": "verifierSelector",
+                            "type": "bytes4",
+                            "internalType": "bytes4"
+                        },
+                        {
+                            "name": "seal",
+                            "type": "bytes32[8]",
+                            "internalType": "bytes32[8]"
+                        },
+                        {
+                            "name": "mode",
+                            "type": "uint8",
+                            "internalType": "enum ProofMode"
+                        }
+                    ]
+                },
+                {
+                    "name": "callGuestId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                },
+                {
+                    "name": "length",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "callAssumptions",
+                    "type": "tuple",
+                    "internalType": "struct CallAssumptions",
+                    "components": [
+                        {
+                            "name": "proverContractAddress",
+                            "type": "address",
+                            "internalType": "address"
+                        },
+                        {
+                            "name": "functionSelector",
+                            "type": "bytes4",
+                            "internalType": "bytes4"
+                        },
+                        {
+                            "name": "settleChainId",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        },
+                        {
+                            "name": "settleBlockNumber",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        },
+                        {
+                            "name": "settleBlockHash",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        }
+                    ]
+                }
             ]
-          },
-          { "name": "callGuestId", "type": "bytes32" },
-          { "name": "length", "type": "uint256" },
-          {
-            "name": "callAssumptions",
-            "type": "tuple",
-            "components": [
-              { "name": "proverContractAddress", "type": "address" },
-              { "name": "functionSelector", "type": "bytes4" },
-              { "name": "settleChainId", "type": "uint256" },
-              { "name": "settleBlockNumber", "type": "uint256" },
-              { "name": "settleBlockHash", "type": "bytes32" }
-            ]
-          }
-        ]
-      },
-      { "name": "_karmaHash", "type": "bytes32" },
-      { "name": "_targetWallet", "type": "address" },
-      { "name": "_donationAmount", "type": "string" }
+        },
+        {
+            "name": "_karmaHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+        },
+        {
+            "name": "_donationAmount",
+            "type": "string",
+            "internalType": "string"
+        }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
-  }
+},
+{
+    "type": "function",
+    "name": "verifySkip",
+    "inputs": [
+        {
+            "name": "",
+            "type": "tuple",
+            "internalType": "struct Proof",
+            "components": [
+                {
+                    "name": "seal",
+                    "type": "tuple",
+                    "internalType": "struct Seal",
+                    "components": [
+                        {
+                            "name": "verifierSelector",
+                            "type": "bytes4",
+                            "internalType": "bytes4"
+                        },
+                        {
+                            "name": "seal",
+                            "type": "bytes32[8]",
+                            "internalType": "bytes32[8]"
+                        },
+                        {
+                            "name": "mode",
+                            "type": "uint8",
+                            "internalType": "enum ProofMode"
+                        }
+                    ]
+                },
+                {
+                    "name": "callGuestId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                },
+                {
+                    "name": "length",
+                    "type": "uint256",
+                    "internalType": "uint256"
+                },
+                {
+                    "name": "callAssumptions",
+                    "type": "tuple",
+                    "internalType": "struct CallAssumptions",
+                    "components": [
+                        {
+                            "name": "proverContractAddress",
+                            "type": "address",
+                            "internalType": "address"
+                        },
+                        {
+                            "name": "functionSelector",
+                            "type": "bytes4",
+                            "internalType": "bytes4"
+                        },
+                        {
+                            "name": "settleChainId",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        },
+                        {
+                            "name": "settleBlockNumber",
+                            "type": "uint256",
+                            "internalType": "uint256"
+                        },
+                        {
+                            "name": "settleBlockHash",
+                            "type": "bytes32",
+                            "internalType": "bytes32"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "_karmaHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+        },
+        {
+            "name": "_donationAmount",
+            "type": "string",
+            "internalType": "string"
+        }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+}
 ] as const
 
 // Get contract addresses from environment variables
@@ -156,7 +295,6 @@ export const createClients = () => {
 export interface MintNFTParams {
   proof: any
   emailHash: string
-  targetWallet: string
   donationAmount: string
 }
 
@@ -220,7 +358,7 @@ export async function mintKarmaNFT(
   params: MintNFTParams,
   userAddress: string
 ): Promise<MintNFTResult> {
-  const { proof, emailHash, targetWallet, donationAmount } = params
+  const { proof, emailHash, donationAmount } = params
   const contracts = getContractAddresses()
   const { getWalletClient, chain } = createClients()
   
@@ -252,18 +390,21 @@ export async function mintKarmaNFT(
       verifier: contracts.karmaProofVerifier,
       proof: proof,
       emailHash: emailHash,
-      targetWallet: targetWallet,
       donationAmount: donationAmount,
       account: connectedAccount
     })
 
-    // Call the verifier contract
+    // Ensure emailHash is properly formatted as hex string
+    const formattedEmailHash = emailHash.startsWith('0x') ? emailHash : `0x${emailHash}`
+
+    // Call the verifier contract - msg.sender is automatically used as target wallet
     const hash = await walletClient.writeContract({
       address: contracts.karmaProofVerifier as `0x${string}`,
       abi: KARMA_PROOF_VERIFIER_ABI,
       functionName: 'verify',
-      args: [proof, emailHash as `0x${string}`, targetWallet as `0x${string}`, donationAmount],
-      account: connectedAccount
+      args: [proof, formattedEmailHash as `0x${string}`, donationAmount],
+      account: connectedAccount,
+      chain: chain
     })
 
     console.log('Transaction submitted:', hash)

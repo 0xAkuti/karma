@@ -22,7 +22,7 @@ export function EmailProofUpload({ onProofGenerated, onError, disabled }: EmailP
   const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '545')
   const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || 'https://testnet.evm.nodes.onflow.org'
 
-  // Correct ABI for EmailDomainProver - imported from compiled artifacts
+  // Correct ABI for EmailDomainProver - updated to match new 3-value signature
   const PROVER_ABI = [
     {
       "type": "function",
@@ -166,11 +166,6 @@ export function EmailProofUpload({ onProofGenerated, onError, disabled }: EmailP
           "name": "",
           "type": "bytes32",
           "internalType": "bytes32"
-        },
-        {
-          "name": "",
-          "type": "address",
-          "internalType": "address"
         },
         {
           "name": "",

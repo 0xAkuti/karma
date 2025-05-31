@@ -124,7 +124,6 @@ export function WikipediaClaim() {
       const result = await mintKarmaNFT({
         proof: emailProofResult.proof,
         emailHash: emailProofResult.emailHash,
-        targetWallet: emailProofResult.targetWallet,
         donationAmount: emailProofResult.donationAmount
       }, user.wallet.address)
       
@@ -404,12 +403,9 @@ export function WikipediaClaim() {
               <div className="bg-base-200 p-4 rounded-lg max-w-md mx-auto">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="font-medium">Donation Amount:</span>
-                    <span className="text-primary">{emailProofResult.donationAmount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Target Wallet:</span>
-                    <span className="font-mono text-xs">{emailProofResult.targetWallet}</span>
+                    <div className="text-lg font-semibold text-primary">
+                      Donation Amount: ${emailProofResult.donationAmount}
+                    </div>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Verification:</span>
@@ -625,7 +621,7 @@ export function WikipediaClaim() {
                     <div className="card-body items-center">
                       <div className="text-4xl mb-2">📚</div>
                       <h3 className="card-title text-lg">Donation Amount Verified</h3>
-                      <p className="text-center text-sm">{emailProofResult.donationAmount}</p>
+                      <p className="text-center text-sm">${emailProofResult.donationAmount}</p>
                       <div className="badge badge-primary badge-sm">Soulbound NFT</div>
                     </div>
                   </div>
@@ -656,7 +652,7 @@ export function WikipediaClaim() {
                     <div className="card-body items-center">
                       <div className="text-4xl mb-2">📚</div>
                       <h3 className="card-title text-lg">Karma NFT #{mintResult.tokenId.slice(0, 8)}...</h3>
-                      <p className="text-center text-sm mb-2">{emailProofResult.donationAmount} Donation</p>
+                      <p className="text-center text-sm mb-2">${emailProofResult.donationAmount} Donation</p>
                       <div className="flex gap-2">
                         <div className="badge badge-primary badge-sm">Soulbound NFT</div>
                         <div className="badge badge-success badge-sm">vlayer Verified</div>
@@ -691,7 +687,9 @@ export function WikipediaClaim() {
                       
                       {/* Donation Amount */}
                       <div className="bg-primary/10 px-3 py-1 rounded-full mb-2">
-                        <span className="text-sm font-medium">{emailProofResult.donationAmount} Donation</span>
+                        <div className="text-lg font-semibold text-primary">
+                          Donation Amount: ${emailProofResult.donationAmount}
+                        </div>
                       </div>
                       
                       {/* Badges */}
@@ -720,7 +718,7 @@ export function WikipediaClaim() {
                       <div className="text-xs text-base-content/60 mt-3 space-y-1">
                         <div>Token ID: {mintResult.tokenId.slice(0, 8)}...{mintResult.tokenId.slice(-6)}</div>
                         <div>Contract: {contracts.karmaNFT.slice(0, 6)}...{contracts.karmaNFT.slice(-4)}</div>
-                        <div>Wallet: {emailProofResult.targetWallet.slice(0, 6)}...{emailProofResult.targetWallet.slice(-4)}</div>
+                        <div>Wallet: {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}</div>
                       </div>
                     </div>
                   </div>
@@ -729,7 +727,7 @@ export function WikipediaClaim() {
                     <div className="card-body items-center">
                       <div className="text-4xl mb-2">📚</div>
                       <h3 className="card-title text-lg">Karma NFT</h3>
-                      <p className="text-center text-sm mb-2">{emailProofResult.donationAmount} Donation</p>
+                      <p className="text-center text-sm mb-2">${emailProofResult.donationAmount} Donation</p>
                       <div className="flex gap-2 mb-3">
                         <div className="badge badge-primary badge-sm">Soulbound NFT</div>
                         <div className="badge badge-success badge-sm">vlayer Verified</div>
@@ -737,7 +735,7 @@ export function WikipediaClaim() {
                       <div className="text-xs text-base-content/60 mt-2 space-y-1">
                         <div>Token ID: {mintResult.tokenId.slice(0, 8)}...{mintResult.tokenId.slice(-6)}</div>
                         <div>Contract: {contracts.karmaNFT.slice(0, 6)}...{contracts.karmaNFT.slice(-4)}</div>
-                        <div>Wallet: {emailProofResult.targetWallet.slice(0, 6)}...{emailProofResult.targetWallet.slice(-4)}</div>
+                        <div>Wallet: {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}</div>
                       </div>
                       
                       {/* Debug info - temporarily show the full values */}
@@ -782,7 +780,7 @@ export function WikipediaClaim() {
                 <div>
                   <h4 className="font-bold">NFT Details</h4>
                   <p className="text-sm">
-                    Your soulbound NFT represents your verified email proof for donation of {emailProofResult.donationAmount}. 
+                    Your soulbound NFT represents your verified email proof for donation of ${emailProofResult.donationAmount}. 
                     It cannot be transferred and serves as permanent proof of verification.
                   </p>
                 </div>

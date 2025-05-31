@@ -21,7 +21,6 @@ const getVLayerConfig = () => {
 export interface EmailProofResult {
   proof: any
   emailHash: string
-  targetWallet: string
   donationAmount: string
 }
 
@@ -82,11 +81,47 @@ export class VLayerEmailProver {
       
       console.log('Proof generation completed:', result)
 
+      // Handle both new (3 elements) and old (4 elements) contract formats
+      let proof, emailHash, donationAmount
+      
+      if (result.length === 3) {
+        // New format: [proof, emailHash, donationAmount] 
+        proof = result[0]
+        emailHash = result[1]
+        donationAmount = result[2]
+      } else if (result.length === 4) {
+        // Old format fallback: [proof, emailHash, donationAmount, targetWallet] - but targetWallet is empty now
+        proof = result[0]
+        emailHash = result[1]
+        donationAmount = result[2] // Donation amount is at index 2, not 3
+      } else {
+        throw new Error(`Unexpected result format: ${result.length} elements`)
+      }
+
+      // Convert hex donation amount to readable string if needed
+      let readableDonationAmount = donationAmount
+      if (typeof donationAmount === 'string' && donationAmount.startsWith('0x')) {
+        try {
+          // Try to convert hex to number and format as currency
+          const hexValue = parseInt(donationAmount, 16)
+          if (hexValue > 0) {
+            // Convert from cents to dollars (assuming the hex represents cents)
+            // Keep as plain number string for contract verification
+            readableDonationAmount = (hexValue / 100).toFixed(2)
+          } else {
+            readableDonationAmount = '0.00'
+          }
+        } catch (error) {
+          console.warn('Failed to convert hex donation amount:', donationAmount, error)
+          readableDonationAmount = donationAmount // Keep original if conversion fails
+        }
+      }
+      // Don't add currency symbol here - let the UI handle display formatting
+
       return {
-        proof: result[0],
-        emailHash: result[1],
-        targetWallet: result[2],
-        donationAmount: result[3], // The Wikipedia donation prover returns donation amount as the 4th element
+        proof: proof,
+        emailHash: emailHash,
+        donationAmount: readableDonationAmount, // Keep as plain number string
       }
     } catch (error: any) {
       console.error('Error generating email proof:', error)
