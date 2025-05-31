@@ -152,6 +152,17 @@ export function Leaderboard() {
   const totalKarmaDistributed = 45890
   const currentUser = mockLeaderboardData.find(u => u.isCurrentUser)
 
+  // Calculate category distribution for the chart
+  const categoryDistribution = categories.map(category => {
+    const totalCategoryKarma = mockLeaderboardData.reduce((sum, user) => sum + (user.categories[category] || 0), 0)
+    return {
+      name: category,
+      value: totalCategoryKarma,
+      color: `bg-${categoryColors[category as keyof typeof categoryColors].replace('badge-', '')}`,
+      icon: categoryIcons[category as keyof typeof categoryIcons]
+    }
+  }).sort((a, b) => b.value - a.value)
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -247,235 +258,246 @@ export function Leaderboard() {
         </button>
       </div>
 
-      {/* Content based on selected tab */}
-      {selectedTab === 'total' && (
-        <div className="card bg-base-100 shadow-lg">
-          <div className="card-header p-6 border-b">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Trophy className="w-6 h-6 text-primary" />
-              Global Karma Rankings
-            </h2>
-          </div>
-          <div className="card-body p-0">
-            <div className="overflow-x-auto">
-              <table className="table table-zebra">
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>User</th>
-                    <th>Total Karma</th>
-                    <th>NFTs</th>
-                    <th>Weekly Change</th>
-                    <th>Badges</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mockLeaderboardData.slice(0, 10).map((user) => (
-                    <tr key={user.id} className={user.isCurrentUser ? 'bg-primary/5' : ''}>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          {getRankIcon(user.rank)}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <div className="avatar">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                              {user.avatar}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-bold">{user.username || 'Anonymous'}</div>
-                            <div className="text-sm text-neutral/70 font-mono">
-                              {user.address.slice(0, 6)}...{user.address.slice(-4)}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="font-bold karma-gradient text-lg">{user.totalKarma}</div>
-                      </td>
-                      <td>
-                        <div className="badge badge-primary">{user.nftCount}</div>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-1">
-                          {getChangeIcon(user.recentChange)}
-                          <span className={user.recentChange > 0 ? 'text-success' : user.recentChange < 0 ? 'text-error' : ''}>
-                            {user.recentChange > 0 ? '+' : ''}{user.recentChange}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex gap-1 flex-wrap">
-                          {user.badges.slice(0, 2).map((badge, idx) => (
-                            <div key={idx} className="badge badge-outline badge-sm">{badge}</div>
-                          ))}
-                          {user.badges.length > 2 && (
-                            <div className="badge badge-ghost badge-sm">+{user.badges.length - 2}</div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      {/* Main Content Layout */}
+      <div className="grid lg:grid-cols-4 gap-6">
+        {/* Left Sidebar - Chart */}
+        <div className="lg:col-span-1">
+          <KarmaDistributionChart data={categoryDistribution} />
         </div>
-      )}
 
-      {selectedTab === 'weekly' && (
-        <div className="card bg-base-100 shadow-lg">
-          <div className="card-header p-6 border-b">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Flame className="w-6 h-6 text-orange-500" />
-              Top Movers This Week
-            </h2>
-          </div>
-          <div className="card-body p-0">
-            <div className="overflow-x-auto">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Position</th>
-                    <th>User</th>
-                    <th>Karma Gained</th>
-                    <th>Current Total</th>
-                    <th>Growth Rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getTopMovers().map((user, index) => (
-                    <tr key={user.id} className={user.isCurrentUser ? 'bg-primary/5' : ''}>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          {index < 3 ? (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold">
-                              {index + 1}
-                            </div>
-                          ) : (
-                            <span className="text-lg font-bold text-neutral/70">#{index + 1}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <div className="avatar">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                              {user.avatar}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-bold">{user.username || 'Anonymous'}</div>
-                            <div className="text-sm text-neutral/70">Rank #{user.rank}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-success" />
-                          <span className="font-bold text-success text-lg">+{user.recentChange}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="font-semibold karma-gradient">{user.totalKarma}</div>
-                      </td>
-                      <td>
-                        <div className="badge badge-success">
-                          {((user.recentChange / (user.totalKarma - user.recentChange)) * 100).toFixed(1)}%
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedTab === 'categories' && (
-        <div className="space-y-6">
-          {/* Category Selector */}
-          <div className="flex flex-wrap gap-2 justify-center">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`btn ${selectedCategory === category ? 'btn-primary' : 'btn-outline'}`}
-              >
-                <span className="mr-2">{categoryIcons[category as keyof typeof categoryIcons]}</span>
-                {category}
-              </button>
-            ))}
-          </div>
-
-          {/* Category Leaderboard */}
-          <div className="card bg-base-100 shadow-lg">
-            <div className="card-header p-6 border-b">
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <span className="text-2xl">{categoryIcons[selectedCategory as keyof typeof categoryIcons]}</span>
-                {selectedCategory} Leaders
-              </h2>
-            </div>
-            <div className="card-body p-0">
-              <div className="overflow-x-auto">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Rank</th>
-                      <th>User</th>
-                      <th>{selectedCategory} Karma</th>
-                      <th>% of Total</th>
-                      <th>Global Rank</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getCategoryLeaderboard(selectedCategory).map((user, index) => (
-                      <tr key={user.id} className={user.isCurrentUser ? 'bg-primary/5' : ''}>
-                        <td>
-                          {index < 3 ? (
-                            getRankIcon(index + 1)
-                          ) : (
-                            <span className="text-lg font-bold text-neutral/70">#{index + 1}</span>
-                          )}
-                        </td>
-                        <td>
-                          <div className="flex items-center gap-3">
-                            <div className="avatar">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                                {user.avatar}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="font-bold">{user.username || 'Anonymous'}</div>
-                              <div className="text-sm text-neutral/70 font-mono">
-                                {user.address.slice(0, 6)}...{user.address.slice(-4)}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="font-bold text-lg karma-gradient">{user.categoryKarma}</div>
-                        </td>
-                        <td>
-                          <div className="badge badge-outline">
-                            {((user.categoryKarma / user.totalKarma) * 100).toFixed(1)}%
-                          </div>
-                        </td>
-                        <td>
-                          <div className="text-neutral/70">#{user.rank}</div>
-                        </td>
+        {/* Main Content */}
+        <div className="lg:col-span-3">
+          {/* Content based on selected tab */}
+          {selectedTab === 'total' && (
+            <div className="card bg-base-100 shadow-lg">
+              <div className="card-header p-6 border-b">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Trophy className="w-6 h-6 text-primary" />
+                  Global Karma Rankings
+                </h2>
+              </div>
+              <div className="card-body p-0">
+                <div className="overflow-x-auto">
+                  <table className="table table-zebra">
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>User</th>
+                        <th>Total Karma</th>
+                        <th>NFTs</th>
+                        <th>Weekly Change</th>
+                        <th>Badges</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {mockLeaderboardData.slice(0, 10).map((user) => (
+                        <tr key={user.id} className={user.isCurrentUser ? 'bg-primary/5' : ''}>
+                          <td>
+                            <div className="flex items-center gap-2">
+                              {getRankIcon(user.rank)}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-3">
+                              <div className="avatar">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                  {user.avatar}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="font-bold">{user.username || 'Anonymous'}</div>
+                                <div className="text-sm text-neutral/70 font-mono">
+                                  {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="font-bold karma-gradient text-lg">{user.totalKarma}</div>
+                          </td>
+                          <td>
+                            <div className="badge badge-primary">{user.nftCount}</div>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-1">
+                              {getChangeIcon(user.recentChange)}
+                              <span className={user.recentChange > 0 ? 'text-success' : user.recentChange < 0 ? 'text-error' : ''}>
+                                {user.recentChange > 0 ? '+' : ''}{user.recentChange}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="flex gap-1 flex-wrap">
+                              {user.badges.slice(0, 2).map((badge, idx) => (
+                                <div key={idx} className="badge badge-outline badge-sm">{badge}</div>
+                              ))}
+                              {user.badges.length > 2 && (
+                                <div className="badge badge-ghost badge-sm">+{user.badges.length - 2}</div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {selectedTab === 'weekly' && (
+            <div className="card bg-base-100 shadow-lg">
+              <div className="card-header p-6 border-b">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Flame className="w-6 h-6 text-orange-500" />
+                  Top Movers This Week
+                </h2>
+              </div>
+              <div className="card-body p-0">
+                <div className="overflow-x-auto">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Position</th>
+                        <th>User</th>
+                        <th>Karma Gained</th>
+                        <th>Current Total</th>
+                        <th>Growth Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getTopMovers().map((user, index) => (
+                        <tr key={user.id} className={user.isCurrentUser ? 'bg-primary/5' : ''}>
+                          <td>
+                            <div className="flex items-center gap-2">
+                              {index < 3 ? (
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold">
+                                  {index + 1}
+                                </div>
+                              ) : (
+                                <span className="text-lg font-bold text-neutral/70">#{index + 1}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-3">
+                              <div className="avatar">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                  {user.avatar}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="font-bold">{user.username || 'Anonymous'}</div>
+                                <div className="text-sm text-neutral/70">Rank #{user.rank}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="w-4 h-4 text-success" />
+                              <span className="font-bold text-success text-lg">+{user.recentChange}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="font-semibold karma-gradient">{user.totalKarma}</div>
+                          </td>
+                          <td>
+                            <div className="badge badge-success">
+                              {((user.recentChange / (user.totalKarma - user.recentChange)) * 100).toFixed(1)}%
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedTab === 'categories' && (
+            <div className="space-y-6">
+              {/* Category Selector */}
+              <div className="flex flex-wrap gap-2 justify-center">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`btn ${selectedCategory === category ? 'btn-primary' : 'btn-outline'}`}
+                  >
+                    <span className="mr-2">{categoryIcons[category as keyof typeof categoryIcons]}</span>
+                    {category}
+                  </button>
+                ))}
+              </div>
+
+              {/* Category Leaderboard */}
+              <div className="card bg-base-100 shadow-lg">
+                <div className="card-header p-6 border-b">
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <span className="text-2xl">{categoryIcons[selectedCategory as keyof typeof categoryIcons]}</span>
+                    {selectedCategory} Leaders
+                  </h2>
+                </div>
+                <div className="card-body p-0">
+                  <div className="overflow-x-auto">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Rank</th>
+                          <th>User</th>
+                          <th>{selectedCategory} Karma</th>
+                          <th>% of Total</th>
+                          <th>Global Rank</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getCategoryLeaderboard(selectedCategory).map((user, index) => (
+                          <tr key={user.id} className={user.isCurrentUser ? 'bg-primary/5' : ''}>
+                            <td>
+                              {index < 3 ? (
+                                getRankIcon(index + 1)
+                              ) : (
+                                <span className="text-lg font-bold text-neutral/70">#{index + 1}</span>
+                              )}
+                            </td>
+                            <td>
+                              <div className="flex items-center gap-3">
+                                <div className="avatar">
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                    {user.avatar}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="font-bold">{user.username || 'Anonymous'}</div>
+                                  <div className="text-sm text-neutral/70 font-mono">
+                                    {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="font-bold text-lg karma-gradient">{user.categoryKarma}</div>
+                            </td>
+                            <td>
+                              <div className="badge badge-outline">
+                                {((user.categoryKarma / user.totalKarma) * 100).toFixed(1)}%
+                              </div>
+                            </td>
+                            <td>
+                              <div className="text-neutral/70">#{user.rank}</div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 } 
