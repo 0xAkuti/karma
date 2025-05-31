@@ -40,6 +40,8 @@ interface Challenge {
   maxProgress: number
   icon: string
   type: 'weekly' | 'special' | 'milestone'
+  organization: string
+  organizationLogo?: string
 }
 
 interface Goal {
@@ -57,117 +59,90 @@ interface Goal {
 
 // Mock user stats
 const mockUserStats: UserStats = {
-  currentStreak: 7,
-  longestStreak: 12,
-  weeklyKarma: 350,
+  currentStreak: 4, // 4 consecutive weeks
+  longestStreak: 8, // 8 consecutive weeks
+  weeklyKarma: 425,
   weeklyGoal: 500,
-  totalKarma: 2450,
-  level: 8
+  totalKarma: 3650,
+  level: 12
 }
 
-// Mock challenges
+// Mock challenges - Updated for May 2025 with specific organizations
 const mockChallenges: Challenge[] = [
   {
     id: '1',
-    title: 'Week of Giving',
-    description: 'Make 5 verified donations this week',
-    category: 'Education',
-    difficulty: 'Medium',
-    karmaReward: 250,
-    bonusMultiplier: 1.5,
-    deadline: '2024-02-01',
-    isCompleted: false,
-    isLocked: false,
-    progress: 2,
-    maxProgress: 5,
-    icon: '🎁',
-    type: 'weekly'
-  },
-  {
-    id: '2',
-    title: 'Health Hero',
-    description: 'Donate blood or volunteer at a health facility',
+    title: 'Red Cross Blood Drive Challenge',
+    description: 'Donate blood at any Red Cross center and help save lives',
     category: 'Health',
-    difficulty: 'Hard',
+    difficulty: 'Medium',
     karmaReward: 400,
-    deadline: '2024-02-15',
+    bonusMultiplier: 1.5,
+    deadline: '2025-06-15', // World Blood Donor Day
     isCompleted: false,
     isLocked: false,
     progress: 0,
     maxProgress: 1,
     icon: '🩸',
-    type: 'special'
+    type: 'special',
+    organization: 'American Red Cross'
   },
   {
-    id: '3',
-    title: 'Tech for Good',
-    description: 'Contribute to 3 open source projects',
-    category: 'Technology',
-    difficulty: 'Hard',
-    karmaReward: 300,
-    bonusMultiplier: 2,
-    deadline: '2024-02-28',
+    id: '2',
+    title: 'Wikipedia Knowledge Campaign',
+    description: 'Support Wikipedia\'s mission by making a donation to keep knowledge free',
+    category: 'Education',
+    difficulty: 'Easy',
+    karmaReward: 250,
+    deadline: '2025-06-30',
     isCompleted: false,
     isLocked: false,
     progress: 1,
-    maxProgress: 3,
-    icon: '💻',
-    type: 'special'
+    maxProgress: 1,
+    icon: '📚',
+    type: 'special',
+    organization: 'Wikimedia Foundation'
   },
   {
-    id: '4',
-    title: 'Green Warrior',
-    description: 'Complete 10 environmental actions',
+    id: '3',
+    title: 'iNaturalist Biodiversity Challenge',
+    description: 'Upload photos of 5 new species to help scientists track biodiversity',
     category: 'Environment',
-    difficulty: 'Medium',
-    karmaReward: 200,
-    deadline: '2024-02-10',
-    isCompleted: true,
-    isLocked: false,
-    progress: 10,
-    maxProgress: 10,
-    icon: '🌱',
-    type: 'weekly'
-  },
-  {
-    id: '5',
-    title: 'Karma Master',
-    description: 'Reach 5000 total karma points',
-    category: 'General',
     difficulty: 'Hard',
-    karmaReward: 1000,
-    deadline: '2024-03-31',
+    karmaReward: 300,
+    bonusMultiplier: 2,
+    deadline: '2025-07-31', // Summer biodiversity season
     isCompleted: false,
-    isLocked: true,
-    progress: 2450,
-    maxProgress: 5000,
-    icon: '👑',
-    type: 'milestone'
+    isLocked: false,
+    progress: 2,
+    maxProgress: 5,
+    icon: '🌿',
+    type: 'special',
+    organization: 'iNaturalist'
   }
 ]
 
-// Mock goals
+// Mock goals - Updated for May 2025
 const mockGoals: Goal[] = [
   {
     id: '1',
     title: 'Weekly Karma Target',
     description: 'Earn 500 karma points this week',
     target: 500,
-    current: 350,
+    current: 425,
     karmaReward: 50,
-    deadline: '2024-01-28',
+    deadline: '2025-06-07', // Next Saturday
     category: 'Weekly',
     isCompleted: false,
     icon: '🎯'
   },
   {
     id: '2',
-    title: 'Streak Keeper',
-    description: 'Maintain a 14-day streak',
-    target: 14,
-    current: 7,
-    karmaReward: 100,
-    deadline: '2024-02-05',
+    title: 'Weekly Streak Master',
+    description: 'Maintain a 6-week streak',
+    target: 6,
+    current: 4,
+    karmaReward: 150,
+    deadline: '2025-06-14', // 2 weeks from now
     category: 'Streak',
     isCompleted: false,
     icon: '🔥'
@@ -175,14 +150,26 @@ const mockGoals: Goal[] = [
   {
     id: '3',
     title: 'Category Explorer',
-    description: 'Earn karma in 4 different categories',
-    target: 4,
-    current: 3,
-    karmaReward: 75,
-    deadline: '2024-01-31',
+    description: 'Earn karma in all 5 categories this month',
+    target: 5,
+    current: 4,
+    karmaReward: 100,
+    deadline: '2025-06-30', // End of June
     category: 'Diversity',
     isCompleted: false,
     icon: '🗺️'
+  },
+  {
+    id: '4',
+    title: 'Summer Kickoff',
+    description: 'Earn 1000 karma points in June',
+    target: 1000,
+    current: 0,
+    karmaReward: 75,
+    deadline: '2025-06-30',
+    category: 'Monthly',
+    isCompleted: false,
+    icon: '☀️'
   }
 ]
 
@@ -213,9 +200,9 @@ export function Campaigns() {
     : mockChallenges.filter(c => c.category.toLowerCase() === selectedCategory)
 
   const getStreakColor = (streak: number) => {
-    if (streak >= 14) return 'text-error'
-    if (streak >= 7) return 'text-warning'
-    if (streak >= 3) return 'text-success'
+    if (streak >= 8) return 'text-error'    // 8+ weeks = red (amazing!)
+    if (streak >= 4) return 'text-warning'  // 4+ weeks = yellow (great!)
+    if (streak >= 2) return 'text-success'  // 2+ weeks = green (good!)
     return 'text-neutral'
   }
 
@@ -226,7 +213,7 @@ export function Campaigns() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-4xl font-bold karma-gradient mb-2">Campaigns & Challenges</h1>
-            <p className="text-neutral/70">Level up your karma with streaks, goals, and special challenges</p>
+            <p className="text-neutral/70">Level up your karma with weekly streaks, goals, and special challenges</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="stats shadow">
@@ -234,11 +221,11 @@ export function Campaigns() {
                 <div className="stat-figure text-primary">
                   <Flame className="w-8 h-8" />
                 </div>
-                <div className="stat-title">Current Streak</div>
+                <div className="stat-title">Weekly Streak</div>
                 <div className={`stat-value ${getStreakColor(mockUserStats.currentStreak)}`}>
-                  {mockUserStats.currentStreak} days
+                  {mockUserStats.currentStreak} weeks
                 </div>
-                <div className="stat-desc">Best: {mockUserStats.longestStreak} days</div>
+                <div className="stat-desc">Best: {mockUserStats.longestStreak} weeks</div>
               </div>
             </div>
             <div className="stats shadow">
@@ -246,7 +233,7 @@ export function Campaigns() {
                 <div className="stat-figure text-secondary">
                   <Target className="w-8 h-8" />
                 </div>
-                <div className="stat-title">Weekly Progress</div>
+                <div className="stat-title">This Week</div>
                 <div className="stat-value text-secondary">
                   {mockUserStats.weeklyKarma}/{mockUserStats.weeklyGoal}
                 </div>
@@ -262,7 +249,7 @@ export function Campaigns() {
         <div className="card bg-gradient-to-r from-primary/10 to-secondary/10 shadow-lg mb-6">
           <div className="card-body">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold">Weekly Goal Progress</h3>
+              <h3 className="text-xl font-bold">This Week's Progress</h3>
               <div className="badge badge-primary badge-lg">
                 Level {mockUserStats.level}
               </div>
@@ -274,7 +261,7 @@ export function Campaigns() {
               ></div>
             </div>
             <div className="flex justify-between text-sm text-neutral/70">
-              <span>0 karma</span>
+              <span>Week of May 26 - June 1, 2025</span>
               <span>{mockUserStats.weeklyGoal} karma goal</span>
             </div>
           </div>
@@ -301,6 +288,46 @@ export function Campaigns() {
 
       {activeTab === 'challenges' && (
         <div>
+          {/* Featured Organizations */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-4">Featured Partner Organizations</h3>
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              <div className="card bg-base-200 shadow-sm">
+                <div className="card-body p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">🩸</div>
+                    <div>
+                      <h4 className="font-semibold">American Red Cross</h4>
+                      <p className="text-sm text-neutral/70">Emergency assistance, disaster relief</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="card bg-base-200 shadow-sm">
+                <div className="card-body p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">📚</div>
+                    <div>
+                      <h4 className="font-semibold">Wikimedia Foundation</h4>
+                      <p className="text-sm text-neutral/70">Free knowledge for everyone</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="card bg-base-200 shadow-sm">
+                <div className="card-body p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">🌿</div>
+                    <div>
+                      <h4 className="font-semibold">iNaturalist</h4>
+                      <p className="text-sm text-neutral/70">Citizen science for biodiversity</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Category Filter */}
           <div className="mb-6">
             <div className="flex flex-wrap gap-2">
@@ -308,9 +335,9 @@ export function Campaigns() {
                 className={`btn btn-sm ${selectedCategory === 'all' ? 'btn-primary' : 'btn-outline'}`}
                 onClick={() => setSelectedCategory('all')}
               >
-                All
+                All Challenges
               </button>
-              {['Education', 'Health', 'Technology', 'Environment', 'Community'].map(category => (
+              {['Health', 'Education', 'Environment'].map(category => (
                 <button 
                   key={category}
                   className={`btn btn-sm ${selectedCategory === category.toLowerCase() ? 'btn-primary' : 'btn-outline'}`}
@@ -342,6 +369,13 @@ export function Campaigns() {
                       <div className={`badge ${getDifficultyColor(challenge.difficulty)} badge-sm`}>
                         {challenge.difficulty}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Organization Badge */}
+                  <div className="mb-2">
+                    <div className="badge badge-neutral badge-sm">
+                      Organized by {challenge.organization}
                     </div>
                   </div>
 
@@ -404,7 +438,7 @@ export function Campaigns() {
                       </button>
                     ) : (
                       <button className="btn btn-primary btn-sm w-full">
-                        Start Challenge
+                        Join Challenge
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     )}
@@ -493,9 +527,9 @@ export function Campaigns() {
       <div className="mt-12">
         <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 shadow-xl">
           <div className="card-body text-center">
-            <h2 className="text-2xl font-bold mb-4">Keep Up the Great Work! 🚀</h2>
+            <h2 className="text-2xl font-bold mb-4">Amazing Progress This Week! 🚀</h2>
             <p className="text-lg text-neutral/80 mb-6">
-              You're making a real difference in the world. Every verified good deed counts!
+              You're on fire with {mockUserStats.currentStreak} consecutive weeks of good deeds. Keep the momentum going!
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <div className="stat">
@@ -504,9 +538,9 @@ export function Campaigns() {
                 <div className="stat-desc">karma earned</div>
               </div>
               <div className="stat">
-                <div className="stat-title">Streak</div>
+                <div className="stat-title">Weekly Streak</div>
                 <div className="stat-value text-warning">{mockUserStats.currentStreak}</div>
-                <div className="stat-desc">days active</div>
+                <div className="stat-desc">weeks active</div>
               </div>
               <div className="stat">
                 <div className="stat-title">Level</div>
