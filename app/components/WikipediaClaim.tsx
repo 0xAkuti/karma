@@ -40,7 +40,7 @@ export function WikipediaClaim() {
   
   // NFT details fetching - get contract address from config
   const contracts = getContractAddresses()
-  const { nftDetails, isLoading: isLoadingNFT, error: nftError } = useNFTDetails(
+  const { nftDetails, isLoading: isLoadingNFT, error: nftError, retryCount, maxRetries, refetch } = useNFTDetails(
     mintResult ? contracts.karmaNFT : null,
     mintResult?.tokenId || null
   )
@@ -500,6 +500,17 @@ export function WikipediaClaim() {
                         </button>
                       </div>
                     </div>
+                    
+                    {/* Show karma tokens amount if available */}
+                    {mintResult.karmaTokensAmount && (
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-base-300">
+                        <span className="text-sm font-medium">Karma Tokens:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-bold text-primary">{mintResult.karmaTokensAmount}</span>
+                          <span className="text-xs text-base-content/60">KARMA</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Status Indicator */}
@@ -516,6 +527,9 @@ export function WikipediaClaim() {
                             Confirmations: {txStatus.confirmations}
                           </div>
                         )}
+                        <div className="text-xs text-base-content/50 max-w-md">
+                          Once confirmed, your NFT will be minted and karma tokens will be distributed to your wallet.
+                        </div>
                       </>
                     )}
                     
@@ -536,6 +550,19 @@ export function WikipediaClaim() {
                             Gas used: {parseInt(txStatus.gasUsed).toLocaleString()}
                           </div>
                         )}
+                        
+                        {/* Show success details with karma tokens */}
+                        <div className="alert alert-success max-w-md mx-auto">
+                          <CheckCircle className="w-5 h-5" />
+                          <div className="text-left text-sm">
+                            <div className="font-medium">Minting Successful!</div>
+                            <div>• NFT created and assigned to your wallet</div>
+                            {mintResult.karmaTokensAmount && (
+                              <div>• {mintResult.karmaTokensAmount} KARMA tokens distributed</div>
+                            )}
+                            <div>• Proof verified using vlayer technology</div>
+                          </div>
+                        </div>
                       </>
                     )}
                     
@@ -570,6 +597,9 @@ export function WikipediaClaim() {
                           <Clock className="w-4 h-4" />
                           <span className="text-sm">Waiting for transaction to appear...</span>
                         </div>
+                        <div className="text-xs text-base-content/50 max-w-md">
+                          This is normal for new transactions. It may take a few moments to appear on the blockchain.
+                        </div>
                       </>
                     )}
                   </div>
@@ -581,23 +611,28 @@ export function WikipediaClaim() {
                         onClick={() => setCurrentStep('complete')}
                         className="btn btn-primary"
                       >
-                        View Your NFT
+                        View Your NFT & Details
                       </button>
                     </div>
                   )}
                   
                   {/* Retry button on error */}
                   {txStatus.status === 'error' && (
-                    <div className="pt-4">
+                    <div className="pt-4 space-y-2">
                       <button 
                         onClick={() => {
                           setMintResult(null)
                           setCurrentStep('proof')
+                          setError(null)
                         }}
                         className="btn btn-outline"
                       >
                         Try Again
                       </button>
+                      <div className="text-xs text-base-content/60 max-w-md mx-auto">
+                        Common issues: insufficient gas, network congestion, or proof verification failure. 
+                        Please check your wallet and try again.
+                      </div>
                     </div>
                   )}
                 </div>
@@ -611,6 +646,10 @@ export function WikipediaClaim() {
                     <div className="text-sm text-base-content/60">
                       Submitting proof to KarmaProofVerifier contract...
                     </div>
+                    <div className="text-xs text-base-content/50 max-w-md text-center">
+                      Please confirm the transaction in your wallet. This process verifies your donation 
+                      email and mints your soulbound NFT with karma token rewards.
+                    </div>
                   </div>
                 </div>
               )}
@@ -620,9 +659,12 @@ export function WikipediaClaim() {
                   <div className="card bg-gradient-to-br from-primary/20 to-secondary/20">
                     <div className="card-body items-center">
                       <div className="text-4xl mb-2">📚</div>
-                      <h3 className="card-title text-lg">Donation Amount Verified</h3>
-                      <p className="text-center text-sm">${emailProofResult.donationAmount}</p>
-                      <div className="badge badge-primary badge-sm">Soulbound NFT</div>
+                      <h3 className="card-title text-lg">Donation Verified</h3>
+                      <p className="text-center text-sm font-semibold">${emailProofResult.donationAmount}</p>
+                      <div className="flex gap-1 mt-2">
+                        <div className="badge badge-primary badge-sm">Soulbound NFT</div>
+                        <div className="badge badge-secondary badge-sm">+10 KARMA</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -638,6 +680,19 @@ export function WikipediaClaim() {
                 Your Karma NFT has been successfully minted with vlayer verification
               </p>
 
+              {/* Karma Token Reward Display */}
+              {mintResult.karmaTokensAmount && (
+                <div className="alert alert-success max-w-md mx-auto">
+                  <Gift className="w-5 h-5" />
+                  <div>
+                    <h4 className="font-bold">Karma Tokens Earned!</h4>
+                    <p className="text-sm">
+                      You received <span className="font-bold text-primary">{mintResult.karmaTokensAmount} KARMA tokens</span> for your ${emailProofResult.donationAmount} donation
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* NFT Display */}
               <div className="max-w-lg mx-auto">
                 {isLoadingNFT ? (
@@ -645,6 +700,14 @@ export function WikipediaClaim() {
                     <div className="card-body items-center">
                       <span className="loading loading-spinner loading-md"></span>
                       <p className="text-sm">Loading NFT details from Blockscout...</p>
+                      <div className="text-xs text-base-content/60 mt-2">
+                        This may take a few moments after minting
+                      </div>
+                      {retryCount > 0 && (
+                        <div className="text-xs text-primary mt-1">
+                          Retry attempt {retryCount}/{maxRetries}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : nftError ? (
@@ -653,12 +716,65 @@ export function WikipediaClaim() {
                       <div className="text-4xl mb-2">📚</div>
                       <h3 className="card-title text-lg">Karma NFT #{mintResult.tokenId.slice(0, 8)}...</h3>
                       <p className="text-center text-sm mb-2">${emailProofResult.donationAmount} Donation</p>
-                      <div className="flex gap-2">
+                      
+                      {/* Karma tokens display even without metadata */}
+                      {mintResult.karmaTokensAmount && (
+                        <div className="bg-primary/10 px-3 py-1 rounded-full mb-2">
+                          <div className="text-sm font-semibold text-primary">
+                            +{mintResult.karmaTokensAmount} KARMA Tokens
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-2 mb-3">
                         <div className="badge badge-primary badge-sm">Soulbound NFT</div>
                         <div className="badge badge-success badge-sm">vlayer Verified</div>
                       </div>
-                      <div className="text-xs text-warning mt-2">
-                        ⚠️ Could not load metadata from Blockscout
+                      
+                      <div className="alert alert-warning text-xs mt-3">
+                        <AlertCircle className="w-4 h-4" />
+                        <div>
+                          <div className="font-medium">Metadata Loading</div>
+                          <div>NFT metadata may take a few minutes to appear on Blockscout after minting.</div>
+                          {retryCount > 0 && retryCount < maxRetries && (
+                            <div className="mt-1">
+                              Auto-retrying... (attempt {retryCount}/{maxRetries})
+                            </div>
+                          )}
+                          {retryCount >= maxRetries && (
+                            <div className="mt-1 text-warning">
+                              Auto-retry limit reached. You can manually retry or check back later.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Manual retry button */}
+                      <div className="mt-3">
+                        <button 
+                          onClick={refetch}
+                          className="btn btn-xs btn-outline"
+                          disabled={isLoadingNFT}
+                        >
+                          {isLoadingNFT ? (
+                            <>
+                              <span className="loading loading-spinner loading-xs"></span>
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-3 h-3" />
+                              Retry Metadata
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Technical Details */}
+                      <div className="text-xs text-base-content/60 mt-3 space-y-1">
+                        <div>Token ID: {mintResult.tokenId.slice(0, 8)}...{mintResult.tokenId.slice(-6)}</div>
+                        <div>Contract: {contracts.karmaNFT.slice(0, 6)}...{contracts.karmaNFT.slice(-4)}</div>
+                        <div>Wallet: {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}</div>
                       </div>
                     </div>
                   </div>
@@ -688,9 +804,18 @@ export function WikipediaClaim() {
                       {/* Donation Amount */}
                       <div className="bg-primary/10 px-3 py-1 rounded-full mb-2">
                         <div className="text-lg font-semibold text-primary">
-                          Donation Amount: ${emailProofResult.donationAmount}
+                          Donation: ${emailProofResult.donationAmount}
                         </div>
                       </div>
+                      
+                      {/* Karma tokens display */}
+                      {mintResult.karmaTokensAmount && (
+                        <div className="bg-secondary/10 px-3 py-1 rounded-full mb-2">
+                          <div className="text-lg font-semibold text-secondary">
+                            +{mintResult.karmaTokensAmount} KARMA Tokens
+                          </div>
+                        </div>
+                      )}
                       
                       {/* Badges */}
                       <div className="flex gap-2 mb-3">
@@ -728,6 +853,16 @@ export function WikipediaClaim() {
                       <div className="text-4xl mb-2">📚</div>
                       <h3 className="card-title text-lg">Karma NFT</h3>
                       <p className="text-center text-sm mb-2">${emailProofResult.donationAmount} Donation</p>
+                      
+                      {/* Karma tokens display */}
+                      {mintResult.karmaTokensAmount && (
+                        <div className="bg-secondary/10 px-3 py-1 rounded-full mb-2">
+                          <div className="text-lg font-semibold text-secondary">
+                            +{mintResult.karmaTokensAmount} KARMA Tokens
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="flex gap-2 mb-3">
                         <div className="badge badge-primary badge-sm">Soulbound NFT</div>
                         <div className="badge badge-success badge-sm">vlayer Verified</div>
@@ -736,39 +871,6 @@ export function WikipediaClaim() {
                         <div>Token ID: {mintResult.tokenId.slice(0, 8)}...{mintResult.tokenId.slice(-6)}</div>
                         <div>Contract: {contracts.karmaNFT.slice(0, 6)}...{contracts.karmaNFT.slice(-4)}</div>
                         <div>Wallet: {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}</div>
-                      </div>
-                      
-                      {/* Debug info - temporarily show the full values */}
-                      <div className="bg-warning/10 p-2 rounded mt-3 text-xs">
-                        <div className="font-medium text-warning mb-1">Debug Info:</div>
-                        <div>Contract: {contracts.karmaNFT}</div>
-                        <div>Token ID: {mintResult.tokenId}</div>
-                        <div>NFT Error: {nftError}</div>
-                        <div>Loading: {isLoadingNFT ? 'Yes' : 'No'}</div>
-                        
-                        {nftError && (
-                          <div className="mt-2">
-                            <button 
-                              onClick={() => {
-                                console.log('Retrying NFT details fetch...')
-                                // Get the refetch function from the hook
-                                if (window.location.reload) {
-                                  window.location.reload()
-                                }
-                              }}
-                              className="btn btn-xs btn-warning"
-                            >
-                              Retry Fetch
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="alert alert-info text-xs mt-3">
-                        <div>
-                          <div className="font-medium">Note:</div>
-                          <div>NFT metadata may take a few minutes to appear on Blockscout after minting.</div>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -780,8 +882,11 @@ export function WikipediaClaim() {
                 <div>
                   <h4 className="font-bold">NFT Details</h4>
                   <p className="text-sm">
-                    Your soulbound NFT represents your verified email proof for donation of ${emailProofResult.donationAmount}. 
-                    It cannot be transferred and serves as permanent proof of verification.
+                    Your soulbound NFT represents your verified donation of ${emailProofResult.donationAmount} to Wikipedia.
+                    {mintResult.karmaTokensAmount && (
+                      <> You also earned {mintResult.karmaTokensAmount} KARMA tokens as a reward for your contribution.</>
+                    )}
+                    It cannot be transferred and serves as permanent proof of your good deed.
                   </p>
                 </div>
               </div>

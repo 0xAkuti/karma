@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 export interface NFTDetails {
   tokenId: string
@@ -17,11 +17,14 @@ export function useNFTDetails(contractAddress: string | null, tokenId: string | 
   const [nftDetails, setNftDetails] = useState<NFTDetails | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const blockscoutUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_URL || 'https://base-sepolia.blockscout.com'
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const maxRetries = 5
 
-  const fetchNFTDetails = async (address: string, id: string): Promise<NFTDetails | null> => {
+  const fetchNFTDetails = useCallback(async (address: string, id: string): Promise<NFTDetails | null> => {
     try {
-      console.log('Fetching NFT details for:', { address, id })
+      console.log('Fetching NFT details for:', { address, id, attempt: retryCount + 1 })
       console.log('Blockscout URL:', blockscoutUrl)
       
       // First, get basic token info
@@ -62,7 +65,13 @@ export function useNFTDetails(contractAddress: string | null, tokenId: string | 
       } else {
         const errorText = await instanceResponse.text()
         console.warn('Could not fetch NFT instance data:', instanceResponse.status, errorText)
-        console.warn('Using token data only')
+        
+        // If it's a 404, the NFT might not be indexed yet - this is expected for newly minted NFTs
+        if (instanceResponse.status === 404) {
+          throw new Error('NFT not yet indexed - this is normal for newly minted NFTs')
+        } else {
+          console.warn('Using token data only due to instance fetch error')
+        }
       }
 
       // Combine the data
@@ -82,10 +91,21 @@ export function useNFTDetails(contractAddress: string | null, tokenId: string | 
       console.error('Error fetching NFT details:', error)
       throw error
     }
-  }
+  }, [blockscoutUrl, retryCount])
 
-  useEffect(() => {
-    if (contractAddress && tokenId) {
+  const retryFetch = useCallback(() => {
+    if (!contractAddress || !tokenId || retryCount >= maxRetries) {
+      return
+    }
+
+    setRetryCount(prev => prev + 1)
+    
+    // Exponential backoff: 5s, 10s, 20s, 40s, 80s
+    const delayMs = Math.min(5000 * Math.pow(2, retryCount), 80000)
+    
+    console.log(`Retrying NFT fetch in ${delayMs}ms (attempt ${retryCount + 1}/${maxRetries})`)
+    
+    retryTimeoutRef.current = setTimeout(() => {
       setIsLoading(true)
       setError(null)
       
@@ -93,31 +113,106 @@ export function useNFTDetails(contractAddress: string | null, tokenId: string | 
         .then(details => {
           setNftDetails(details)
           setIsLoading(false)
+          setRetryCount(0) // Reset retry count on success
         })
         .catch(err => {
-          setError(err instanceof Error ? err.message : 'Failed to fetch NFT details')
+          const errorMessage = err instanceof Error ? err.message : 'Failed to fetch NFT details'
+          setError(errorMessage)
+          setIsLoading(false)
+          
+          // Auto-retry if it's an indexing issue and we haven't hit max retries
+          if (errorMessage.includes('not yet indexed') && retryCount < maxRetries - 1) {
+            console.log('NFT not indexed yet, will retry automatically')
+            retryFetch()
+          }
+        })
+    }, delayMs)
+  }, [contractAddress, tokenId, retryCount, fetchNFTDetails])
+
+  const manualRefetch = useCallback(() => {
+    if (contractAddress && tokenId) {
+      setIsLoading(true)
+      setError(null)
+      setRetryCount(0) // Reset retry count for manual refetch
+      
+      // Clear any pending retry
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
+      
+      fetchNFTDetails(contractAddress, tokenId)
+        .then(details => {
+          setNftDetails(details)
           setIsLoading(false)
         })
+        .catch(err => {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to fetch NFT details'
+          setError(errorMessage)
+          setIsLoading(false)
+          
+          // Start auto-retry for newly minted NFTs
+          if (errorMessage.includes('not yet indexed')) {
+            retryFetch()
+          }
+        })
+    }
+  }, [contractAddress, tokenId, fetchNFTDetails, retryFetch])
+
+  useEffect(() => {
+    // Clear any pending retries when contract/token changes
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = null
+    }
+    
+    if (contractAddress && tokenId) {
+      setIsLoading(true)
+      setError(null)
+      setRetryCount(0)
+      
+      // For newly minted NFTs, add a small delay before first fetch to allow indexing
+      const initialDelay = 2000 // 2 seconds
+      
+      setTimeout(() => {
+        fetchNFTDetails(contractAddress, tokenId)
+          .then(details => {
+            setNftDetails(details)
+            setIsLoading(false)
+          })
+          .catch(err => {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch NFT details'
+            setError(errorMessage)
+            setIsLoading(false)
+            
+            // Start auto-retry for newly minted NFTs
+            if (errorMessage.includes('not yet indexed')) {
+              retryFetch()
+            }
+          })
+      }, initialDelay)
     } else {
       setNftDetails(null)
       setError(null)
       setIsLoading(false)
+      setRetryCount(0)
     }
-  }, [contractAddress, tokenId])
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
+    }
+  }, [contractAddress, tokenId, fetchNFTDetails, retryFetch])
 
   return {
     nftDetails,
     isLoading,
     error,
-    refetch: () => {
-      if (contractAddress && tokenId) {
-        setIsLoading(true)
-        setError(null)
-        fetchNFTDetails(contractAddress, tokenId)
-          .then(setNftDetails)
-          .catch(err => setError(err instanceof Error ? err.message : 'Failed to fetch NFT details'))
-          .finally(() => setIsLoading(false))
-      }
-    }
+    retryCount,
+    maxRetries,
+    refetch: manualRefetch
   }
 } 

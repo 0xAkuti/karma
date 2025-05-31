@@ -1,7 +1,7 @@
 'use client'
 
 import { WalletConnect } from './WalletConnect'
-import { Heart, Award, Shield, Sparkles } from 'lucide-react'
+import { Heart, Award, Gift, Sparkles } from 'lucide-react'
 
 export function Hero() {
   return (
@@ -51,11 +51,11 @@ export function Hero() {
             <div className="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
               <div className="card-body items-center text-center">
                 <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mb-4">
-                  <Shield className="w-8 h-8 text-accent" />
+                  <Gift className="w-8 h-8 text-accent" />
                 </div>
-                <h3 className="card-title text-neutral">Privacy First</h3>
+                <h3 className="card-title text-neutral">Real-world Perks</h3>
                 <p className="text-neutral/70">
-                  Zero-knowledge proofs protect your privacy while verifying your good deeds.
+                  Earn real-world perks like discounts, free transport, and access to exclusive events.
                 </p>
               </div>
             </div>

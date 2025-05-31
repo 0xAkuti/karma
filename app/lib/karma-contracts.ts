@@ -1,6 +1,5 @@
-import { createPublicClient, createWalletClient, custom, http, parseEther } from 'viem'
+import { createPublicClient, createWalletClient, custom, http, parseEther, Log, defineChain } from 'viem'
 import { flowTestnet, anvilLocal, configuredChain, baseSepolia } from './wagmi'
-import { defineChain } from 'viem'
 
 // Get the target chain based on environment
 export const getTargetChain = () => {
@@ -257,8 +256,9 @@ export function getContractAddresses() {
   const karmaNFT = process.env.NEXT_PUBLIC_KARMA_NFT_CONTRACT
   const karmaProofVerifier = process.env.NEXT_PUBLIC_VLAYER_VERIFIER_CONTRACT_ADDRESS
   const prover = process.env.NEXT_PUBLIC_VLAYER_PROVER_CONTRACT_ADDRESS
+  const karmaToken = process.env.NEXT_PUBLIC_KARMA_TOKEN_CONTRACT
   
-  if (!karmaNFT || !karmaProofVerifier || !prover) {
+  if (!karmaNFT || !karmaProofVerifier || !prover || !karmaToken) {
     throw new Error('Missing required contract addresses in environment variables')
   }
   
@@ -266,6 +266,7 @@ export function getContractAddresses() {
     karmaNFT: karmaNFT as `0x${string}`,
     karmaProofVerifier: karmaProofVerifier as `0x${string}`,
     prover: prover as `0x${string}`,
+    karmaToken: karmaToken as `0x${string}`,
   }
 }
 
@@ -302,6 +303,8 @@ export interface MintNFTResult {
   transactionHash: string
   tokenId: string
   blockscoutUrl: string
+  karmaTokensAmount?: string
+  receipt?: any
 }
 
 // Helper function to request chain switch
@@ -360,9 +363,10 @@ export async function mintKarmaNFT(
 ): Promise<MintNFTResult> {
   const { proof, emailHash, donationAmount } = params
   const contracts = getContractAddresses()
-  const { getWalletClient, chain } = createClients()
+  const { publicClient, getWalletClient, chain } = createClients()
   
   const walletClient = getWalletClient()
+  
   if (!walletClient) {
     throw new Error('Wallet not connected')
   }
@@ -424,10 +428,52 @@ export async function mintKarmaNFT(
       blockscoutUrl = `https://blockscout.example.com/tx/${hash}`
     }
 
+    // Wait for transaction receipt to get confirmation and extract events
+    let receipt = null
+    let karmaTokensAmount = '10' // Default amount from contract
+    
+    try {
+      console.log('Waiting for transaction receipt...')
+      receipt = await publicClient.waitForTransactionReceipt({ 
+        hash: hash,
+        timeout: 60_000 // 60 second timeout
+      })
+      
+      console.log('Transaction receipt:', receipt)
+      
+      // Extract karma token amount from Transfer event if available
+      if (receipt.logs && receipt.logs.length > 0) {
+        // Look for KarmaToken Transfer events (ERC20 Transfer has topic0 = keccak256("Transfer(address,address,uint256)"))
+        const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+        const karmaTokenTransferLog = receipt.logs.find((log: Log) => 
+          log.topics[0] === transferTopic && 
+          log.address?.toLowerCase() === contracts.karmaToken.toLowerCase()
+        )
+        
+        if (karmaTokenTransferLog && karmaTokenTransferLog.data) {
+          try {
+            // Decode the amount from the log data (3rd parameter of Transfer event)
+            const amountHex = karmaTokenTransferLog.data
+            const amountWei = BigInt(amountHex)
+            const amountEther = Number(amountWei) / Math.pow(10, 18) // Convert from wei to ether
+            karmaTokensAmount = amountEther.toString()
+            console.log('Extracted karma tokens amount:', karmaTokensAmount)
+          } catch (error) {
+            console.warn('Failed to decode karma token amount from logs:', error)
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to wait for transaction receipt:', error)
+      // Continue without receipt - the transaction was still submitted
+    }
+
     return {
       transactionHash: hash,
       tokenId: emailHash,
-      blockscoutUrl
+      blockscoutUrl,
+      karmaTokensAmount,
+      receipt
     }
   } catch (error: any) {
     console.error('Error minting Karma NFT:', error)

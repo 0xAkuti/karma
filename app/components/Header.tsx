@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Sparkles } from 'lucide-react'
+import Image from 'next/image'
 import { WalletConnect } from './WalletConnect'
 
 export function Header() {
@@ -7,10 +7,16 @@ export function Header() {
     <div className="navbar bg-base-100 shadow-sm border-b">
       <div className="navbar-start">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="w-12 h-12 flex items-center justify-center">
+            <Image 
+              src="/images/logo-karmaproof.png" 
+              alt="KarmaProof Logo" 
+              width={48} 
+              height={48}
+              className="rounded-lg"
+            />
           </div>
-          <span className="text-xl font-bold karma-gradient">Karma</span>
+          <span className="text-xl font-bold karma-gradient">KarmaProof</span>
         </Link>
       </div>
       <div className="navbar-center hidden sm:flex">
