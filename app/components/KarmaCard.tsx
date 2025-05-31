@@ -1,6 +1,6 @@
 'use client'
 
-import { Shield, Calendar, ExternalLink, Eye } from 'lucide-react'
+import { Shield, Calendar, ExternalLink, Eye, Twitter } from 'lucide-react'
 import { generateBlockscoutUrls } from '@/lib/karma-contracts'
 import Image from 'next/image'
 import { useState } from 'react'
@@ -35,6 +35,14 @@ function KarmaDetailModal({ nft, isOpen, onClose }: { nft: KarmaNFT; isOpen: boo
       const baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_API_URL?.replace('/api', '') || 'https://testnet.flowdiver.io'
       window.open(baseUrl, '_blank')
     }
+  }
+
+  const handleShareOnTwitter = () => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+    const text = `Just earned ${nft.karmaPoints} Karma points for "${nft.title}" on @KarmaProof! 🌟\n\nProving that good deeds make a difference. Join me in making the world better, one verified action at a time! 💫\n\n#KarmaProof #GoodDeeds #Web3ForGood`
+    
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(baseUrl)}`
+    window.open(twitterUrl, '_blank')
   }
 
   const getCategoryColor = (category: string) => {
@@ -131,6 +139,13 @@ function KarmaDetailModal({ nft, isOpen, onClose }: { nft: KarmaNFT; isOpen: boo
 
         {/* Actions */}
         <div className="modal-action mt-0">
+          <button 
+            onClick={handleShareOnTwitter}
+            className="btn btn-info"
+          >
+            <Twitter className="w-4 h-4" />
+            Share on Twitter
+          </button>
           <button 
             onClick={handleViewOnExplorer}
             className="btn btn-primary"
