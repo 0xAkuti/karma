@@ -12,8 +12,24 @@ import { mintKarmaNFT, MintNFTResult, generateBlockscoutUrls, generateTwitterSha
 import { useNotification } from '@blockscout/app-sdk'
 import { useTransactionStatus } from '@/hooks/useTransactionStatus'
 import { useNFTDetails } from '@/hooks/useNFTDetails'
+import { createPublicClient, http } from 'viem'
 
 type ClaimStep = 'instructions' | 'upload' | 'processing' | 'proof' | 'minting' | 'complete'
+
+// Enhanced NFT details interface that includes direct tokenURI metadata
+interface EnhancedNFTDetails {
+  tokenId: string
+  contractAddress: string
+  name?: string
+  description?: string
+  image?: string
+  attributes?: Array<{
+    trait_type: string
+    value: string | number
+  }>
+  metadata?: any
+  tokenURI?: string
+}
 
 export function WikipediaClaim() {
   const { user, ready: privyReady, authenticated } = usePrivy()
@@ -30,6 +46,7 @@ export function WikipediaClaim() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSwitchingChain, setIsSwitchingChain] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [enhancedNFTDetails, setEnhancedNFTDetails] = useState<EnhancedNFTDetails | null>(null)
   
   // Transaction status tracking
   const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '545'
@@ -44,6 +61,220 @@ export function WikipediaClaim() {
     mintResult ? contracts.karmaNFT : null,
     mintResult?.tokenId || null
   )
+
+  // Fallback function to fetch NFT details from Blockscout API
+  const fetchNFTFromBlockscout = async (contractAddress: string, tokenId: string) => {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_URL || 'https://base-sepolia.blockscout.com'
+      
+      // Convert tokenId to proper format if needed
+      let displayTokenId = tokenId
+      try {
+        if (tokenId.startsWith('0x')) {
+          displayTokenId = BigInt(tokenId).toString()
+        }
+      } catch {
+        // Keep original if conversion fails
+      }
+      
+      // Fetch the specific NFT instance directly
+      const apiUrl = `${baseUrl}/api/v2/tokens/${contractAddress}/instances/${displayTokenId}`
+      
+      console.log('Fetching specific NFT instance from Blockscout API:', apiUrl)
+      
+      const response = await fetch(apiUrl)
+      if (response.ok) {
+        const nftData = await response.json()
+        console.log('Blockscout specific NFT data:', nftData)
+        
+        if (nftData) {
+          return {
+            tokenId: displayTokenId,
+            contractAddress,
+            name: nftData.metadata?.name || 'Verified Karma Proof',
+            description: nftData.metadata?.description || 'Verified Karma Proof',
+            image: nftData.metadata?.image || nftData.image_url,
+            attributes: nftData.metadata?.attributes || [],
+            metadata: nftData.metadata,
+            tokenURI: nftData.token_url || `${baseUrl}/token/${contractAddress}/instance/${displayTokenId}`
+          }
+        }
+      } else {
+        console.log('Blockscout API response not ok:', response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error('Error fetching NFT from Blockscout:', error)
+    }
+    
+    return null
+  }
+
+  // Enhanced NFT metadata fetching using direct contract call
+  const fetchTokenURIMetadata = async (contractAddress: string, tokenId: string) => {
+    try {
+      console.log('Fetching tokenURI directly from contract...', { contractAddress, tokenId })
+      
+      // Create a public client for the target chain
+      const targetChain = getTargetChain()
+      const publicClient = createPublicClient({
+        chain: targetChain,
+        transport: http()
+      })
+
+      // Convert tokenId to proper BigInt - handle both hex strings and decimal strings
+      let tokenIdBigInt: bigint
+      if (tokenId.startsWith('0x')) {
+        // It's a hex string, convert from hex
+        tokenIdBigInt = BigInt(tokenId)
+      } else {
+        // It's a decimal string, convert normally
+        tokenIdBigInt = BigInt(tokenId)
+      }
+
+      console.log('Converted tokenId to BigInt:', tokenIdBigInt.toString())
+
+      // Call tokenURI function on the contract
+      const tokenURI = await publicClient.readContract({
+        address: contractAddress as `0x${string}`,
+        abi: [
+          {
+            "type": "function",
+            "name": "tokenURI",
+            "inputs": [{ "name": "tokenId", "type": "uint256" }],
+            "outputs": [{ "name": "", "type": "string" }],
+            "stateMutability": "view"
+          }
+        ],
+        functionName: 'tokenURI',
+        args: [tokenIdBigInt]
+      })
+
+      console.log('TokenURI from contract:', tokenURI)
+
+      if (tokenURI) {
+        console.log('Fetching metadata from:', tokenURI)
+        try {
+          const metadataResponse = await fetch(tokenURI)
+          if (metadataResponse.ok) {
+            const metadata = await metadataResponse.json()
+            console.log('Successfully fetched metadata:', metadata)
+            
+            return {
+              tokenId: tokenIdBigInt.toString(),
+              contractAddress,
+              name: metadata.name || 'Verified Karma Proof',
+              description: metadata.description || 'Verified Karma Proof',
+              image: metadata.image,
+              attributes: metadata.attributes || [],
+              metadata,
+              tokenURI
+            }
+          }
+        } catch (fetchError) {
+          console.warn('Direct metadata fetch failed (likely CORS), trying alternative:', fetchError)
+          
+          // Try using a CORS proxy for external URLs
+          if (tokenURI.includes('faucet.vlayer.xyz')) {
+            try {
+              // Use a public CORS proxy as fallback
+              const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(tokenURI)}`
+              const proxyResponse = await fetch(proxyUrl)
+              if (proxyResponse.ok) {
+                const proxyData = await proxyResponse.json()
+                const metadata = JSON.parse(proxyData.contents)
+                console.log('Successfully fetched metadata via CORS proxy:', metadata)
+                
+                return {
+                  tokenId: tokenIdBigInt.toString(),
+                  contractAddress,
+                  name: metadata.name || 'Verified Karma Proof', 
+                  description: metadata.description || 'Verified Karma Proof',
+                  image: metadata.image,
+                  attributes: metadata.attributes || [],
+                  metadata,
+                  tokenURI
+                }
+              }
+            } catch (proxyError) {
+              console.warn('CORS proxy also failed:', proxyError)
+            }
+          }
+        }
+      } else {
+        console.warn('No tokenURI returned from contract')
+      }
+    } catch (error) {
+      console.error('Failed to fetch tokenURI metadata:', error)
+    }
+    return null
+  }
+
+  // Enhanced NFT details effect with retry logic
+  useEffect(() => {
+    if (mintResult && currentStep === 'complete') {
+      const loadEnhancedDetails = async () => {
+        console.log('Loading enhanced NFT details...', { 
+          contractAddress: contracts.karmaNFT, 
+          tokenId: mintResult.tokenId 
+        })
+        
+        try {
+          // Try direct contract call first
+          const enhanced = await fetchTokenURIMetadata(contracts.karmaNFT, mintResult.tokenId)
+          if (enhanced) {
+            console.log('Successfully loaded enhanced details:', enhanced)
+            setEnhancedNFTDetails(enhanced)
+            return
+          }
+
+          // If contract call failed, try Blockscout API as fallback
+          console.log('Direct contract call failed, trying Blockscout API...')
+          if (user?.wallet?.address) {
+            const blockscoutData = await fetchNFTFromBlockscout(contracts.karmaNFT, mintResult.tokenId)
+            if (blockscoutData) {
+              console.log('Successfully loaded details from Blockscout:', blockscoutData)
+              setEnhancedNFTDetails(blockscoutData)
+              return
+            }
+          }
+
+          // Final fallback to blockscout data from useNFTDetails hook
+          console.log('Blockscout API also failed, using fallback from hook')
+          if (nftDetails) {
+            setEnhancedNFTDetails({
+              ...nftDetails,
+              tokenURI: undefined
+            })
+          }
+        } catch (error) {
+          console.error('Failed to load enhanced NFT details:', error)
+          // Final fallback to blockscout data
+          if (nftDetails) {
+            setEnhancedNFTDetails({
+              ...nftDetails,
+              tokenURI: undefined
+            })
+          }
+        }
+      }
+
+      // Small delay to allow contract state to update, then retry a few times
+      const timer = setTimeout(loadEnhancedDetails, 2000)
+      
+      // Set up retry mechanism
+      const retryTimer = setTimeout(() => {
+        if (!enhancedNFTDetails?.image) {
+          console.log('Retrying enhanced details fetch...')
+          loadEnhancedDetails()
+        }
+      }, 8000)
+      
+      return () => {
+        clearTimeout(timer)
+        clearTimeout(retryTimer)
+      }
+    }
+  }, [mintResult, contracts.karmaNFT, nftDetails, currentStep, user?.wallet?.address])
 
   // Handle hydration
   useEffect(() => {
@@ -146,10 +377,21 @@ export function WikipediaClaim() {
   const handleViewOnBlockscout = () => {
     if (!mintResult) return
     
-    const urls = generateBlockscoutUrls(mintResult.tokenId, mintResult.transactionHash)
-    if (urls.transaction) {
-      window.open(urls.transaction, '_blank')
+    // Get the actual tokenId (convert from hex to decimal if needed)
+    let displayTokenId = mintResult.tokenId
+    try {
+      if (mintResult.tokenId.startsWith('0x')) {
+        displayTokenId = BigInt(mintResult.tokenId).toString()
+      }
+    } catch {
+      // Keep original if conversion fails
     }
+    
+    // Generate direct NFT URL: [BLOCKSCOUT_URL]/token/[CONTRACT]/instance/[TOKEN_ID]
+    const baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_URL || 'https://base-sepolia.blockscout.com'
+    const nftUrl = `${baseUrl}/token/${contracts.karmaNFT}/instance/${displayTokenId}`
+    
+    window.open(nftUrl, '_blank')
   }
 
   const handleShareOnTwitter = () => {
@@ -162,6 +404,12 @@ export function WikipediaClaim() {
     })
     
     window.open(twitterUrl, '_blank')
+  }
+
+  // Helper function to get blockscout URL for addresses/transactions
+  const getBlockscoutUrl = (type: 'address' | 'tx', value: string) => {
+    const baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_URL || 'https://base-sepolia.blockscout.com'
+    return `${baseUrl}/${type}/${value}`
   }
 
   const renderNetworkAlert = () => {
@@ -476,91 +724,50 @@ export function WikipediaClaim() {
 
           {currentStep === 'minting' && (
             <div className="space-y-6 text-center">
-              <div className="text-6xl mb-4">🎨</div>
-              <h2 className="card-title text-2xl justify-center">Minting Your NFT</h2>
+              <div className="text-7xl mb-4">🎨</div>
+              <h2 className="text-3xl font-bold text-primary mb-2">Minting Your NFT</h2>
+              <p className="text-lg text-base-content/70">
+                Creating your soulbound proof of contribution...
+              </p>
               
               {/* Transaction Status Display */}
               {mintResult ? (
-                <div className="space-y-4">
-                  <p className="text-base-content/70">
-                    Transaction submitted! Tracking status using Blockscout API...
-                  </p>
-                  
-                  {/* Transaction Hash */}
-                  <div className="max-w-md mx-auto bg-base-200 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Transaction:</span>
-                      <div className="flex items-center gap-2">
-                        <code className="text-xs">{mintResult.transactionHash.slice(0, 8)}...{mintResult.transactionHash.slice(-6)}</code>
-                        <button
-                          onClick={() => window.open(mintResult.blockscoutUrl, '_blank')}
-                          className="btn btn-xs btn-ghost"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* Show karma tokens amount if available */}
-                    {mintResult.karmaTokensAmount && (
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-base-300">
-                        <span className="text-sm font-medium">Karma Tokens:</span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm font-bold text-primary">{mintResult.karmaTokensAmount}</span>
-                          <span className="text-xs text-base-content/60">KARMA</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
+                <div className="space-y-6">
                   {/* Status Indicator */}
-                  <div className="flex flex-col items-center space-y-3">
+                  <div className="flex flex-col items-center space-y-4">
                     {txStatus.status === 'pending' && (
                       <>
                         <span className="loading loading-spinner loading-lg text-primary"></span>
-                        <div className="flex items-center gap-2 text-warning">
-                          <Clock className="w-4 h-4" />
-                          <span className="text-sm">Transaction pending...</span>
-                        </div>
-                        {txStatus.confirmations !== undefined && (
-                          <div className="text-xs text-base-content/60">
-                            Confirmations: {txStatus.confirmations}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-warning justify-center">
+                            <Clock className="w-5 h-5" />
+                            <span className="text-lg font-medium">Transaction Processing...</span>
                           </div>
-                        )}
-                        <div className="text-xs text-base-content/50 max-w-md">
-                          Once confirmed, your NFT will be minted and karma tokens will be distributed to your wallet.
+                          <div className="text-sm text-base-content/60 max-w-md">
+                            Your NFT is being minted on-chain. This usually takes a few moments.
+                          </div>
                         </div>
                       </>
                     )}
                     
                     {txStatus.status === 'success' && (
                       <>
-                        <div className="text-success text-4xl">✅</div>
-                        <div className="flex items-center gap-2 text-success">
-                          <Check className="w-4 h-4" />
-                          <span className="text-sm font-medium">Transaction confirmed!</span>
-                        </div>
-                        {txStatus.confirmations && (
-                          <div className="text-xs text-base-content/60">
-                            Block: {txStatus.blockNumber} • Confirmations: {txStatus.confirmations}
+                        <div className="text-success text-6xl">✅</div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-success justify-center">
+                            <Check className="w-5 h-5" />
+                            <span className="text-lg font-medium">NFT Successfully Minted!</span>
                           </div>
-                        )}
-                        {txStatus.gasUsed && (
-                          <div className="text-xs text-base-content/60">
-                            Gas used: {parseInt(txStatus.gasUsed).toLocaleString()}
-                          </div>
-                        )}
-                        
-                        {/* Show success details with karma tokens */}
-                        <div className="alert alert-success max-w-md mx-auto">
-                          <CheckCircle className="w-5 h-5" />
-                          <div className="text-left text-sm">
-                            <div className="font-medium">Minting Successful!</div>
-                            <div>• NFT created and assigned to your wallet</div>
-                            {mintResult.karmaTokensAmount && (
-                              <div>• {mintResult.karmaTokensAmount} KARMA tokens distributed</div>
-                            )}
-                            <div>• Proof verified using vlayer technology</div>
+                          
+                          {/* Simplified success summary */}
+                          <div className="bg-success/10 border border-success/30 rounded-lg p-4 max-w-md mx-auto">
+                            <div className="space-y-2 text-sm">
+                              <div>✓ NFT created and assigned to your wallet</div>
+                              {mintResult.karmaTokensAmount && (
+                                <div>✓ {mintResult.karmaTokensAmount} KARMA tokens earned</div>
+                              )}
+                              <div>✓ Donation verified using vlayer</div>
+                            </div>
                           </div>
                         </div>
                       </>
@@ -568,57 +775,81 @@ export function WikipediaClaim() {
                     
                     {txStatus.status === 'error' && (
                       <>
-                        <div className="text-error text-4xl">❌</div>
-                        <div className="flex items-center gap-2 text-error">
-                          <X className="w-4 h-4" />
-                          <span className="text-sm font-medium">Transaction failed</span>
-                        </div>
-                        {txStatus.error && (
-                          <div className="alert alert-error max-w-md mx-auto">
-                            <AlertCircle className="w-4 h-4" />
-                            <div className="text-left">
-                              <div className="font-medium text-sm">Error Details:</div>
-                              <div className="text-xs">{txStatus.error}</div>
-                              {txStatus.revertReason && (
-                                <div className="text-xs mt-1">
-                                  <span className="font-medium">Revert reason:</span> {txStatus.revertReason}
-                                </div>
-                              )}
-                            </div>
+                        <div className="text-error text-5xl">❌</div>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-error justify-center">
+                            <X className="w-5 h-5" />
+                            <span className="text-lg font-medium">Transaction Failed</span>
                           </div>
-                        )}
+                          {txStatus.error && (
+                            <div className="bg-error/10 border border-error/30 rounded-lg p-4 max-w-md mx-auto">
+                              <div className="text-sm text-left">
+                                <div className="font-medium mb-1">Error:</div>
+                                <div className="text-xs">{txStatus.error}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
                     
                     {txStatus.status === 'not_found' && (
                       <>
-                        <span className="loading loading-spinner loading-md text-warning"></span>
-                        <div className="flex items-center gap-2 text-warning">
-                          <Clock className="w-4 h-4" />
-                          <span className="text-sm">Waiting for transaction to appear...</span>
-                        </div>
-                        <div className="text-xs text-base-content/50 max-w-md">
-                          This is normal for new transactions. It may take a few moments to appear on the blockchain.
+                        <span className="loading loading-spinner loading-lg text-warning"></span>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-warning justify-center">
+                            <Clock className="w-5 h-5" />
+                            <span className="text-lg font-medium">Submitting Transaction...</span>
+                          </div>
+                          <div className="text-sm text-base-content/60 max-w-md">
+                            Waiting for the transaction to be processed by the network.
+                          </div>
                         </div>
                       </>
                     )}
                   </div>
                   
-                  {/* Auto-progress to complete when successful */}
+                  {/* Transaction Details - Collapsed */}
+                  <details className="max-w-md mx-auto">
+                    <summary className="btn btn-ghost btn-sm cursor-pointer">
+                      <ExternalLink className="w-4 h-4" />
+                      View Transaction Details
+                    </summary>
+                    <div className="mt-3 p-3 bg-base-200 rounded-lg text-xs space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span>Hash:</span>
+                        <code>{mintResult.transactionHash.slice(0, 8)}...{mintResult.transactionHash.slice(-6)}</code>
+                      </div>
+                      {mintResult.karmaTokensAmount && (
+                        <div className="flex justify-between items-center">
+                          <span>Tokens:</span>
+                          <span className="font-bold text-primary">{mintResult.karmaTokensAmount} KARMA</span>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => window.open(mintResult.blockscoutUrl, '_blank')}
+                        className="btn btn-xs btn-outline w-full mt-2"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        View on Explorer
+                      </button>
+                    </div>
+                  </details>
+                  
+                  {/* Action Buttons */}
                   {txStatus.status === 'success' && (
-                    <div className="pt-4">
+                    <div className="pt-2">
                       <button 
                         onClick={() => setCurrentStep('complete')}
-                        className="btn btn-primary"
+                        className="btn btn-primary btn-lg"
                       >
-                        View Your NFT & Details
+                        View Your NFT
                       </button>
                     </div>
                   )}
                   
-                  {/* Retry button on error */}
                   {txStatus.status === 'error' && (
-                    <div className="pt-4 space-y-2">
+                    <div className="pt-2">
                       <button 
                         onClick={() => {
                           setMintResult(null)
@@ -629,41 +860,17 @@ export function WikipediaClaim() {
                       >
                         Try Again
                       </button>
-                      <div className="text-xs text-base-content/60 max-w-md mx-auto">
-                        Common issues: insufficient gas, network congestion, or proof verification failure. 
-                        Please check your wallet and try again.
-                      </div>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-base-content/70">
-                    Creating your soulbound Karma NFT with vlayer proof verification...
-                  </p>
+                <div className="space-y-6">
                   <div className="flex flex-col items-center space-y-4">
                     <span className="loading loading-spinner loading-lg text-primary"></span>
-                    <div className="text-sm text-base-content/60">
-                      Submitting proof to KarmaProofVerifier contract...
-                    </div>
-                    <div className="text-xs text-base-content/50 max-w-md text-center">
-                      Please confirm the transaction in your wallet. This process verifies your donation 
-                      email and mints your soulbound NFT with karma token rewards.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {emailProofResult && (
-                <div className="max-w-sm mx-auto">
-                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20">
-                    <div className="card-body items-center">
-                      <div className="text-4xl mb-2">📚</div>
-                      <h3 className="card-title text-lg">Donation Verified</h3>
-                      <p className="text-center text-sm font-semibold">${emailProofResult.donationAmount}</p>
-                      <div className="flex gap-1 mt-2">
-                        <div className="badge badge-primary badge-sm">Soulbound NFT</div>
-                        <div className="badge badge-secondary badge-sm">+10 KARMA</div>
+                    <div className="space-y-2">
+                      <div className="text-lg font-medium">Preparing Transaction...</div>
+                      <div className="text-sm text-base-content/60 max-w-md">
+                        Please confirm the transaction in your wallet to mint your NFT.
                       </div>
                     </div>
                   </div>
@@ -673,163 +880,88 @@ export function WikipediaClaim() {
           )}
 
           {currentStep === 'complete' && emailProofResult && mintResult && (
-            <div className="space-y-6 text-center">
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="card-title text-2xl justify-center">Congratulations!</h2>
-              <p className="text-base-content/70">
-                Your Karma NFT has been successfully minted with vlayer verification
-              </p>
+            <div className="space-y-8 text-center">
+              {/* Main Success Header */}
+              <div className="space-y-4">
+                <div className="text-8xl mb-4">🎉</div>
+                <h1 className="text-4xl font-bold text-primary mb-2">
+                  NFT Successfully Minted!
+                </h1>
+                <p className="text-xl text-base-content/80">
+                  Your donation has been verified and immortalized on-chain
+                </p>
+              </div>
 
-              {/* Karma Token Reward Display */}
-              {mintResult.karmaTokensAmount && (
-                <div className="alert alert-success max-w-md mx-auto">
-                  <Gift className="w-5 h-5" />
-                  <div>
-                    <h4 className="font-bold">Karma Tokens Earned!</h4>
-                    <p className="text-sm">
-                      You received <span className="font-bold text-primary">{mintResult.karmaTokensAmount} KARMA tokens</span> for your ${emailProofResult.donationAmount} donation
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* NFT Display */}
-              <div className="max-w-lg mx-auto">
-                {isLoadingNFT ? (
-                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
-                    <div className="card-body items-center">
-                      <span className="loading loading-spinner loading-md"></span>
-                      <p className="text-sm">Loading NFT details from Blockscout...</p>
-                      <div className="text-xs text-base-content/60 mt-2">
-                        This may take a few moments after minting
-                      </div>
-                      {retryCount > 0 && (
-                        <div className="text-xs text-primary mt-1">
-                          Retry attempt {retryCount}/{maxRetries}
-                        </div>
-                      )}
+              {/* Main NFT Display - Made More Prominent */}
+              <div className="max-w-md mx-auto">
+                {isLoadingNFT && !enhancedNFTDetails ? (
+                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/40 shadow-lg">
+                    <div className="card-body items-center py-12">
+                      <span className="loading loading-spinner loading-lg text-primary"></span>
+                      <h3 className="text-lg font-semibold mt-4">Loading Your NFT...</h3>
+                      <p className="text-sm text-base-content/60">Fetching metadata from contract...</p>
                     </div>
                   </div>
-                ) : nftError ? (
-                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
-                    <div className="card-body items-center">
-                      <div className="text-4xl mb-2">📚</div>
-                      <h3 className="card-title text-lg">Karma NFT #{mintResult.tokenId.slice(0, 8)}...</h3>
-                      <p className="text-center text-sm mb-2">${emailProofResult.donationAmount} Donation</p>
-                      
-                      {/* Karma tokens display even without metadata */}
-                      {mintResult.karmaTokensAmount && (
-                        <div className="bg-primary/10 px-3 py-1 rounded-full mb-2">
-                          <div className="text-sm font-semibold text-primary">
-                            +{mintResult.karmaTokensAmount} KARMA Tokens
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="flex gap-2 mb-3">
-                        <div className="badge badge-primary badge-sm">Soulbound NFT</div>
-                        <div className="badge badge-success badge-sm">vlayer Verified</div>
-                      </div>
-                      
-                      <div className="alert alert-warning text-xs mt-3">
-                        <AlertCircle className="w-4 h-4" />
-                        <div>
-                          <div className="font-medium">Metadata Loading</div>
-                          <div>NFT metadata may take a few minutes to appear on Blockscout after minting.</div>
-                          {retryCount > 0 && retryCount < maxRetries && (
-                            <div className="mt-1">
-                              Auto-retrying... (attempt {retryCount}/{maxRetries})
-                            </div>
-                          )}
-                          {retryCount >= maxRetries && (
-                            <div className="mt-1 text-warning">
-                              Auto-retry limit reached. You can manually retry or check back later.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Manual retry button */}
-                      <div className="mt-3">
-                        <button 
-                          onClick={refetch}
-                          className="btn btn-xs btn-outline"
-                          disabled={isLoadingNFT}
-                        >
-                          {isLoadingNFT ? (
-                            <>
-                              <span className="loading loading-spinner loading-xs"></span>
-                              Loading...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="w-3 h-3" />
-                              Retry Metadata
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      
-                      {/* Technical Details */}
-                      <div className="text-xs text-base-content/60 mt-3 space-y-1">
-                        <div>Token ID: {mintResult.tokenId.slice(0, 8)}...{mintResult.tokenId.slice(-6)}</div>
-                        <div>Contract: {contracts.karmaNFT.slice(0, 6)}...{contracts.karmaNFT.slice(-4)}</div>
-                        <div>Wallet: {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : nftDetails ? (
-                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
-                    <div className="card-body items-center">
-                      {/* NFT Image */}
-                      {nftDetails.image ? (
+                ) : enhancedNFTDetails || nftDetails ? (
+                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/40 shadow-lg">
+                    <div className="card-body items-center py-8">
+                      {/* NFT Image or Fallback */}
+                      {(enhancedNFTDetails?.image || nftDetails?.image) ? (
                         <img 
-                          src={nftDetails.image} 
-                          alt={nftDetails.name}
-                          className="w-32 h-32 rounded-lg object-cover mb-4"
+                          src={enhancedNFTDetails?.image || nftDetails?.image} 
+                          alt={enhancedNFTDetails?.name || nftDetails?.name || 'Karma NFT'}
+                          className="w-40 h-40 rounded-xl object-cover mb-4 shadow-md"
                           onError={(e) => {
-                            // Fallback to emoji if image fails to load
                             const target = e.target as HTMLImageElement
                             target.style.display = 'none'
                             target.nextElementSibling?.classList.remove('hidden')
                           }}
                         />
                       ) : null}
-                      <div className={`text-4xl mb-2 ${nftDetails.image ? 'hidden' : ''}`}>📚</div>
+                      <div className={`text-6xl mb-4 ${(enhancedNFTDetails?.image || nftDetails?.image) ? 'hidden' : ''}`}>📚</div>
                       
-                      {/* NFT Details */}
-                      <h3 className="card-title text-lg">{nftDetails.name}</h3>
-                      <p className="text-center text-sm mb-2">{nftDetails.description}</p>
+                      {/* NFT Title */}
+                      <h2 className="text-2xl font-bold text-primary mb-2">
+                        {enhancedNFTDetails?.name || nftDetails?.name || 'Karma NFT'}
+                      </h2>
                       
-                      {/* Donation Amount */}
-                      <div className="bg-primary/10 px-3 py-1 rounded-full mb-2">
-                        <div className="text-lg font-semibold text-primary">
-                          Donation: ${emailProofResult.donationAmount}
-                        </div>
-                      </div>
-                      
-                      {/* Karma tokens display */}
-                      {mintResult.karmaTokensAmount && (
-                        <div className="bg-secondary/10 px-3 py-1 rounded-full mb-2">
-                          <div className="text-lg font-semibold text-secondary">
-                            +{mintResult.karmaTokensAmount} KARMA Tokens
-                          </div>
-                        </div>
+                      {/* Description if available */}
+                      {(enhancedNFTDetails?.description || nftDetails?.description) && (
+                        <p className="text-sm text-base-content/70 mb-4 max-w-xs">
+                          {enhancedNFTDetails?.description || nftDetails?.description}
+                        </p>
                       )}
                       
-                      {/* Badges */}
-                      <div className="flex gap-2 mb-3">
-                        <div className="badge badge-primary badge-sm">Soulbound NFT</div>
-                        <div className="badge badge-success badge-sm">vlayer Verified</div>
-                        <div className="badge badge-info badge-sm">Blockscout Verified</div>
+                      {/* Key Details in Clean Layout */}
+                      <div className="space-y-3 w-full max-w-xs">
+                        <div className="bg-primary/15 px-4 py-2 rounded-lg">
+                          <div className="text-lg font-bold text-primary">
+                            ${emailProofResult.donationAmount} Donation
+                          </div>
+                        </div>
+                        
+                        {mintResult.karmaTokensAmount && (
+                          <div className="bg-secondary/15 px-4 py-2 rounded-lg">
+                            <div className="text-lg font-bold text-secondary">
+                              +{mintResult.karmaTokensAmount} KARMA Tokens
+                            </div>
+                          </div>
+                        )}
                       </div>
                       
-                      {/* NFT Attributes */}
-                      {nftDetails.attributes && nftDetails.attributes.length > 0 && (
-                        <div className="w-full">
+                      {/* Clean Badges */}
+                      <div className="flex gap-2 mt-4">
+                        <div className="badge badge-primary">Soulbound</div>
+                        <div className="badge badge-success">Verified</div>
+                      </div>
+
+                      {/* Attributes if available */}
+                      {((enhancedNFTDetails?.attributes || nftDetails?.attributes) && 
+                        (enhancedNFTDetails?.attributes || nftDetails?.attributes)!.length > 0) && (
+                        <div className="w-full mt-4">
                           <h4 className="text-sm font-medium mb-2">Attributes</h4>
                           <div className="grid grid-cols-2 gap-2">
-                            {nftDetails.attributes.map((attr, index) => (
+                            {(enhancedNFTDetails?.attributes || nftDetails?.attributes)?.slice(0, 4).map((attr, index) => (
                               <div key={index} className="bg-base-200 p-2 rounded text-xs">
                                 <div className="font-medium">{attr.trait_type}</div>
                                 <div className="text-base-content/70">{attr.value}</div>
@@ -838,82 +970,165 @@ export function WikipediaClaim() {
                           </div>
                         </div>
                       )}
-                      
-                      {/* Technical Details */}
-                      <div className="text-xs text-base-content/60 mt-3 space-y-1">
-                        <div>Token ID: {mintResult.tokenId.slice(0, 8)}...{mintResult.tokenId.slice(-6)}</div>
-                        <div>Contract: {contracts.karmaNFT.slice(0, 6)}...{contracts.karmaNFT.slice(-4)}</div>
-                        <div>Wallet: {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}</div>
-                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
-                    <div className="card-body items-center">
-                      <div className="text-4xl mb-2">📚</div>
-                      <h3 className="card-title text-lg">Karma NFT</h3>
-                      <p className="text-center text-sm mb-2">${emailProofResult.donationAmount} Donation</p>
+                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/40 shadow-lg">
+                    <div className="card-body items-center py-8">
+                      <div className="text-6xl mb-4">📚</div>
+                      <h2 className="text-2xl font-bold text-primary mb-2">
+                        Karma NFT
+                      </h2>
                       
-                      {/* Karma tokens display */}
-                      {mintResult.karmaTokensAmount && (
-                        <div className="bg-secondary/10 px-3 py-1 rounded-full mb-2">
-                          <div className="text-lg font-semibold text-secondary">
-                            +{mintResult.karmaTokensAmount} KARMA Tokens
+                      {/* Key Details */}
+                      <div className="space-y-3 w-full max-w-xs">
+                        <div className="bg-primary/15 px-4 py-2 rounded-lg">
+                          <div className="text-lg font-bold text-primary">
+                            ${emailProofResult.donationAmount} Donation
                           </div>
                         </div>
-                      )}
-                      
-                      <div className="flex gap-2 mb-3">
-                        <div className="badge badge-primary badge-sm">Soulbound NFT</div>
-                        <div className="badge badge-success badge-sm">vlayer Verified</div>
+                        
+                        {mintResult.karmaTokensAmount && (
+                          <div className="bg-secondary/15 px-4 py-2 rounded-lg">
+                            <div className="text-lg font-bold text-secondary">
+                              +{mintResult.karmaTokensAmount} KARMA Tokens
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-base-content/60 mt-2 space-y-1">
-                        <div>Token ID: {mintResult.tokenId.slice(0, 8)}...{mintResult.tokenId.slice(-6)}</div>
-                        <div>Contract: {contracts.karmaNFT.slice(0, 6)}...{contracts.karmaNFT.slice(-4)}</div>
-                        <div>Wallet: {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}</div>
+                      
+                      {/* Clean Badges */}
+                      <div className="flex gap-2 mt-4">
+                        <div className="badge badge-primary">Soulbound</div>
+                        <div className="badge badge-success">Verified</div>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="alert alert-info max-w-md mx-auto">
-                <CheckCircle className="w-5 h-5" />
-                <div>
-                  <h4 className="font-bold">NFT Details</h4>
-                  <p className="text-sm">
-                    Your soulbound NFT represents your verified donation of ${emailProofResult.donationAmount} to Wikipedia.
-                    {mintResult.karmaTokensAmount && (
-                      <> You also earned {mintResult.karmaTokensAmount} KARMA tokens as a reward for your contribution.</>
-                    )}
-                    It cannot be transferred and serves as permanent proof of your good deed.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto">
                 <button 
                   onClick={handleViewOnBlockscout}
                   className="btn btn-outline btn-wide"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  View on Blockscout
+                  View on Explorer
                 </button>
-                
-                <div className="divider">Share your achievement</div>
                 
                 <button 
                   onClick={handleShareOnTwitter}
-                  className="btn btn-primary btn-outline"
+                  className="btn btn-primary btn-wide"
                 >
                   <Twitter className="w-4 h-4" />
-                  Share on Twitter
+                  Share Achievement
                 </button>
               </div>
 
-              <div className="card-actions justify-center">
-                <Link href="/dashboard" className="btn btn-primary">
-                  Return to Dashboard
+              {/* Enhanced Technical Details - Collapsed by Default */}
+              <details className="max-w-lg mx-auto">
+                <summary className="btn btn-ghost btn-sm cursor-pointer">
+                  <Eye className="w-4 h-4" />
+                  View Technical Details
+                </summary>
+                <div className="mt-4 p-4 bg-base-200 rounded-lg text-sm space-y-3">
+                  {/* Token ID */}
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Token ID:</span>
+                    <code className="bg-base-300 px-2 py-1 rounded text-xs">
+                      {(() => {
+                        // Convert hex tokenId to decimal for display
+                        try {
+                          if (mintResult.tokenId.startsWith('0x')) {
+                            return BigInt(mintResult.tokenId).toString()
+                          }
+                          return mintResult.tokenId
+                        } catch {
+                          return mintResult.tokenId
+                        }
+                      })()}
+                    </code>
+                  </div>
+                  
+                  {/* Contract Address */}
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Contract:</span>
+                    <div className="flex items-center gap-2">
+                      <code className="bg-base-300 px-2 py-1 rounded text-xs">
+                        {contracts.karmaNFT}
+                      </code>
+                      <button
+                        onClick={() => window.open(getBlockscoutUrl('address', contracts.karmaNFT), '_blank')}
+                        className="btn btn-xs btn-ghost"
+                        title="View contract on Blockscout"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Transaction Hash */}
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Transaction:</span>
+                    <div className="flex items-center gap-2">
+                      <code className="bg-base-300 px-2 py-1 rounded text-xs">
+                        {mintResult.transactionHash}
+                      </code>
+                      <button
+                        onClick={() => window.open(getBlockscoutUrl('tx', mintResult.transactionHash), '_blank')}
+                        className="btn btn-xs btn-ghost"
+                        title="View transaction on Blockscout"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Token URI if available */}
+                  {enhancedNFTDetails?.tokenURI && (
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Metadata URI:</span>
+                      <div className="flex items-center gap-2">
+                        <code className="bg-base-300 px-2 py-1 rounded text-xs max-w-48 truncate">
+                          {enhancedNFTDetails.tokenURI}
+                        </code>
+                        <button
+                          onClick={() => window.open(enhancedNFTDetails.tokenURI!, '_blank')}
+                          className="btn btn-xs btn-ghost"
+                          title="View metadata JSON"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Wallet Address */}
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Owner:</span>
+                    <div className="flex items-center gap-2">
+                      <code className="bg-base-300 px-2 py-1 rounded text-xs">
+                        {user?.wallet?.address}
+                      </code>
+                      {user?.wallet?.address && (
+                        <button
+                          onClick={() => window.open(getBlockscoutUrl('address', user.wallet!.address), '_blank')}
+                          className="btn btn-xs btn-ghost"
+                          title="View wallet on Blockscout"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </details>
+
+              {/* Return to Dashboard */}
+              <div className="pt-4">
+                <Link href="/dashboard" className="btn btn-primary btn-lg">
+                  Continue to Dashboard
                 </Link>
               </div>
             </div>

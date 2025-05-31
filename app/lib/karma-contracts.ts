@@ -431,6 +431,7 @@ export async function mintKarmaNFT(
     // Wait for transaction receipt to get confirmation and extract events
     let receipt = null
     let karmaTokensAmount = '10' // Default amount from contract
+    let actualTokenId = emailHash // Fallback to emailHash if we can't extract from events
     
     try {
       console.log('Waiting for transaction receipt...')
@@ -441,11 +442,35 @@ export async function mintKarmaNFT(
       
       console.log('Transaction receipt:', receipt)
       
-      // Extract karma token amount from Transfer event if available
+      // Extract actual tokenId from Issued event
       if (receipt.logs && receipt.logs.length > 0) {
-        // Look for KarmaToken Transfer events (ERC20 Transfer has topic0 = keccak256("Transfer(address,address,uint256)"))
+        // Look for KarmaNFT Issued event (keccak256("Issued(address,address,uint256,uint8)"))
+        const issuedTopic = '0x27f6a4b7c1b4c4b5a6b2f9b6b8c4b5a6b2f9b6b8c4b5a6b2f9b6b8c4b5a6b2f9' // This needs to be the correct hash
+        
+        // Since we don't have the exact topic hash, let's look for events from our NFT contract
+        const nftContractLogs = receipt.logs.filter((log: any) => 
+          log.address && log.address.toLowerCase() === contracts.karmaNFT.toLowerCase()
+        )
+        
+        console.log('NFT contract logs:', nftContractLogs)
+        
+        // Look for Transfer event which should contain the tokenId (ERC721 Transfer has tokenId as 3rd topic)
         const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
-        const karmaTokenTransferLog = receipt.logs.find((log: Log) => 
+        const transferLog = nftContractLogs.find((log: any) => 
+          log.topics[0] === transferTopic
+        )
+        
+        if (transferLog && transferLog.topics.length >= 4) {
+          // In ERC721 Transfer event, topics are: [Transfer signature, from, to, tokenId]
+          const tokenIdHex = transferLog.topics[3]
+          if (tokenIdHex) {
+            actualTokenId = BigInt(tokenIdHex).toString() // Convert to decimal string
+            console.log('Extracted actual tokenId from Transfer event:', actualTokenId)
+          }
+        }
+        
+        // Also extract karma token amount from Transfer event if available
+        const karmaTokenTransferLog = receipt.logs.find((log: any) => 
           log.topics[0] === transferTopic && 
           log.address?.toLowerCase() === contracts.karmaToken.toLowerCase()
         )
@@ -470,7 +495,7 @@ export async function mintKarmaNFT(
 
     return {
       transactionHash: hash,
-      tokenId: emailHash,
+      tokenId: actualTokenId,
       blockscoutUrl,
       karmaTokensAmount,
       receipt
