@@ -86,7 +86,7 @@ export class VLayerEmailProver {
         proof: result[0],
         emailHash: result[1],
         targetWallet: result[2],
-        donationAmount: result[3],
+        donationAmount: result[3], // The Wikipedia donation prover returns donation amount as the 4th element
       }
     } catch (error: any) {
       console.error('Error generating email proof:', error)

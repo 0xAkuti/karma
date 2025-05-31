@@ -1,5 +1,5 @@
 import { createPublicClient, createWalletClient, custom, http, parseEther } from 'viem'
-import { flowTestnet, anvilLocal, configuredChain } from './wagmi'
+import { flowTestnet, anvilLocal, configuredChain, baseSepolia } from './wagmi'
 import { defineChain } from 'viem'
 
 // Get the target chain based on environment
@@ -10,6 +10,8 @@ export const getTargetChain = () => {
     return flowTestnet
   } else if (chainId === 31337) {
     return anvilLocal
+  } else if (chainId === 84532) {
+    return baseSepolia
   } else {
     return configuredChain
   }
@@ -18,40 +20,16 @@ export const getTargetChain = () => {
 // Dynamic chain configuration based on environment
 const getDynamicChain = () => {
   const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '545')
-  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://testnet.evm.nodes.onflow.org'
   
-  // If it's Flow Testnet, use the pre-defined chain
   if (chainId === 545) {
     return flowTestnet
-  }
-  
-  // If it's Anvil, use the pre-defined chain
-  if (chainId === 31337) {
+  } else if (chainId === 31337) {
     return anvilLocal
+  } else if (chainId === 84532) {
+    return baseSepolia
+  } else {
+    return configuredChain
   }
-  
-  // For other chains, create a dynamic chain definition
-  return defineChain({
-    id: chainId,
-    name: chainId === 31337 ? 'Anvil Local' : `Chain ${chainId}`,
-    nativeCurrency: {
-      name: 'Ether',
-      symbol: 'ETH',
-      decimals: 18,
-    },
-    rpcUrls: {
-      default: {
-        http: [rpcUrl],
-      },
-    },
-    blockExplorers: chainId === 31337 ? undefined : {
-      default: {
-        name: 'Blockscout',
-        url: process.env.NEXT_PUBLIC_BLOCKSCOUT_API_URL?.replace('/api', '') || 'https://testnet.flowdiver.io',
-      },
-    },
-    testnet: chainId !== 1, // Consider it testnet unless it's mainnet
-  })
 }
 
 // Contract ABIs
@@ -127,19 +105,30 @@ export const KARMA_PROOF_VERIFIER_ABI = [
         ]
       },
       { "name": "_karmaHash", "type": "bytes32" },
-      { "name": "_targetWallet", "type": "address" }
+      { "name": "_targetWallet", "type": "address" },
+      { "name": "_donationAmount", "type": "string" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
   }
 ] as const
 
-// Contract addresses from environment
-export const getContractAddresses = () => ({
-  karmaNFT: process.env.NEXT_PUBLIC_KARMA_NFT_CONTRACT as `0x${string}` || '0x0000000000000000000000000000000000000000',
-  karmaVerifier: process.env.NEXT_PUBLIC_VLAYER_VERIFIER_CONTRACT_ADDRESS as `0x${string}` || '0x0000000000000000000000000000000000000000',
-  prover: process.env.NEXT_PUBLIC_VLAYER_PROVER_CONTRACT_ADDRESS as `0x${string}` || '0x0000000000000000000000000000000000000000'
-})
+// Get contract addresses from environment variables
+export function getContractAddresses() {
+  const karmaNFT = process.env.NEXT_PUBLIC_KARMA_NFT_CONTRACT
+  const karmaProofVerifier = process.env.NEXT_PUBLIC_VLAYER_VERIFIER_CONTRACT_ADDRESS
+  const prover = process.env.NEXT_PUBLIC_VLAYER_PROVER_CONTRACT_ADDRESS
+  
+  if (!karmaNFT || !karmaProofVerifier || !prover) {
+    throw new Error('Missing required contract addresses in environment variables')
+  }
+  
+  return {
+    karmaNFT: karmaNFT as `0x${string}`,
+    karmaProofVerifier: karmaProofVerifier as `0x${string}`,
+    prover: prover as `0x${string}`,
+  }
+}
 
 // Create viem clients with dynamic chain
 export const createClients = () => {
@@ -181,15 +170,21 @@ export interface MintNFTResult {
 export async function requestChainSwitch(targetChainId: number) {
   if (typeof window !== 'undefined' && window.ethereum) {
     try {
+      console.log(`Attempting to switch to chain ID: ${targetChainId}`)
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: `0x${targetChainId.toString(16)}` }],
       })
+      console.log(`Successfully switched to chain ID: ${targetChainId}`)
       return true
     } catch (error: any) {
+      console.log(`Switch failed for chain ID ${targetChainId}, error code: ${error.code}`, error)
+      
       // If chain doesn't exist, try to add it
       if (error.code === 4902) {
         const targetChain = getTargetChain()
+        console.log(`Attempting to add chain: ${targetChain.name}`, targetChain)
+        
         try {
           await window.ethereum.request({
             method: 'wallet_addEthereumChain',
@@ -201,12 +196,19 @@ export async function requestChainSwitch(targetChainId: number) {
               blockExplorerUrls: targetChain.blockExplorers ? [targetChain.blockExplorers.default.url] : undefined,
             }],
           })
+          console.log(`Successfully added chain: ${targetChain.name}`)
           return true
-        } catch (addError) {
+        } catch (addError: any) {
           console.error('Failed to add chain:', addError)
           throw new Error(`Failed to add ${targetChain.name} to your wallet. Please add it manually.`)
         }
       }
+      
+      // For other errors (like user rejection)
+      if (error.code === 4001) {
+        throw new Error(`User rejected the network switch to ${getTargetChain().name}.`)
+      }
+      
       throw new Error(`Failed to switch to the correct network. Please switch to ${getTargetChain().name} manually.`)
     }
   }
@@ -218,7 +220,7 @@ export async function mintKarmaNFT(
   params: MintNFTParams,
   userAddress: string
 ): Promise<MintNFTResult> {
-  const { proof, emailHash, targetWallet } = params
+  const { proof, emailHash, targetWallet, donationAmount } = params
   const contracts = getContractAddresses()
   const { getWalletClient, chain } = createClients()
   
@@ -236,49 +238,54 @@ export async function mintKarmaNFT(
     const currentChainIdNumber = parseInt(currentChainId, 16)
     
     if (currentChainIdNumber !== targetChainId) {
-      console.log(`Switching from chain ${currentChainIdNumber} to ${targetChainId}`)
-      await requestChainSwitch(targetChainId)
-      
-      // Wait a bit for the switch to complete
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      throw new Error(`Please switch to chain ID ${targetChainId}. Currently on chain ID ${currentChainIdNumber}`)
     }
-  } catch (error: any) {
-    console.error('Chain switch error:', error)
-    throw new Error(`Network mismatch. Please switch your wallet to ${getTargetChain().name} (Chain ID: ${targetChainId}) and try again.`)
-  }
 
-  try {
-    // Use the email hash as the token ID
-    const tokenId = BigInt(emailHash)
+    // Get the connected account from the wallet client
+    const [connectedAccount] = await walletClient.getAddresses()
     
-    console.log('Minting Karma NFT with params:', {
-      proof,
-      tokenId: tokenId.toString(),
-      targetWallet,
-      verifierContract: contracts.karmaVerifier,
-      chainId: chain.id,
-      chainName: chain.name
+    if (!connectedAccount) {
+      throw new Error('No account connected to wallet')
+    }
+
+    console.log('Minting NFT with params:', {
+      verifier: contracts.karmaProofVerifier,
+      proof: proof,
+      emailHash: emailHash,
+      targetWallet: targetWallet,
+      donationAmount: donationAmount,
+      account: connectedAccount
     })
 
-    // Call the verify function on the KarmaProofVerifier contract
+    // Call the verifier contract
     const hash = await walletClient.writeContract({
-      address: contracts.karmaVerifier,
+      address: contracts.karmaProofVerifier as `0x${string}`,
       abi: KARMA_PROOF_VERIFIER_ABI,
       functionName: 'verify',
-      args: [proof, emailHash as `0x${string}`, targetWallet as `0x${string}`],
-      account: userAddress as `0x${string}`
+      args: [proof, emailHash as `0x${string}`, targetWallet as `0x${string}`, donationAmount],
+      account: connectedAccount
     })
 
     console.log('Transaction submitted:', hash)
 
-    // Generate blockscout URL - for anvil, just use a placeholder
-    const blockscoutUrl = chain.id === 31337 
-      ? `http://localhost:8545/tx/${hash}` // Placeholder for local development
-      : `${process.env.NEXT_PUBLIC_BLOCKSCOUT_API_URL?.replace('/api', '')}/tx/${hash}`
+    // Generate blockscout URL using the same logic as generateBlockscoutUrls
+    let blockscoutUrl: string
+    if (chain.id === 31337) {
+      blockscoutUrl = `http://localhost:8545/tx/${hash}` // Placeholder for local development
+    } else if (process.env.NEXT_PUBLIC_BLOCKSCOUT_URL) {
+      // Use configured blockscout URL if available
+      blockscoutUrl = `${process.env.NEXT_PUBLIC_BLOCKSCOUT_URL}/tx/${hash}`
+    } else if (chain.id === 545) {
+      blockscoutUrl = `https://evm-testnet.flowscan.io/tx/${hash}` // Flow Testnet explorer fallback
+    } else if (chain.id === 84532) {
+      blockscoutUrl = `https://sepolia.basescan.org/tx/${hash}` // Base Sepolia explorer fallback
+    } else {
+      blockscoutUrl = `https://blockscout.example.com/tx/${hash}`
+    }
 
     return {
       transactionHash: hash,
-      tokenId: tokenId.toString(),
+      tokenId: emailHash,
       blockscoutUrl
     }
   } catch (error: any) {
@@ -301,11 +308,40 @@ export function generateBlockscoutUrls(tokenId: string, transactionHash?: string
     }
   }
   
-  // For other chains, use the configured blockscout URL
-  const baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_API_URL?.replace('/api', '') || 'https://testnet.flowdiver.io'
+  // Use configured blockscout URL if available (takes priority)
+  if (process.env.NEXT_PUBLIC_BLOCKSCOUT_URL) {
+    const baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_URL
+    return {
+      token: `${baseUrl}/token/${contracts.karmaNFT}`,
+      transaction: transactionHash ? `${baseUrl}/tx/${transactionHash}` : null,
+      contract: `${baseUrl}/address/${contracts.karmaNFT}`
+    }
+  }
   
+  // For Flow Testnet, use FlowScan as fallback
+  if (chainId === 545) {
+    const baseUrl = 'https://evm-testnet.flowscan.io'
+    return {
+      token: `${baseUrl}/token/${contracts.karmaNFT}`,
+      transaction: transactionHash ? `${baseUrl}/tx/${transactionHash}` : null,
+      contract: `${baseUrl}/address/${contracts.karmaNFT}`
+    }
+  }
+  
+  // For Base Sepolia, use BaseScan as fallback
+  if (chainId === 84532) {
+    const baseUrl = 'https://sepolia.basescan.org'
+    return {
+      token: `${baseUrl}/token/${contracts.karmaNFT}`,
+      transaction: transactionHash ? `${baseUrl}/tx/${transactionHash}` : null,
+      contract: `${baseUrl}/address/${contracts.karmaNFT}`
+    }
+  }
+  
+  // Default fallback
+  const baseUrl = 'https://blockscout.example.com'
   return {
-    token: `${baseUrl}/token/${contracts.karmaNFT}?tab=token_transfers`,
+    token: `${baseUrl}/token/${contracts.karmaNFT}`,
     transaction: transactionHash ? `${baseUrl}/tx/${transactionHash}` : null,
     contract: `${baseUrl}/address/${contracts.karmaNFT}`
   }
@@ -325,7 +361,18 @@ export function generateTwitterShareText(params: {
   text += `#Karma #Web3ForGood #Wikipedia #vlayer #ZKProofs`
   
   if (transactionHash && chainId !== 31337) {
-    const baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_API_URL?.replace('/api', '') || 'https://testnet.flowdiver.io'
+    let baseUrl: string
+    
+    // Use configured blockscout URL if available (takes priority)
+    if (process.env.NEXT_PUBLIC_BLOCKSCOUT_URL) {
+      baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_URL
+    } else if (chainId === 545) {
+      baseUrl = 'https://evm-testnet.flowscan.io'
+    } else if (chainId === 84532) {
+      baseUrl = 'https://sepolia.basescan.org'
+    } else {
+      baseUrl = 'https://blockscout.example.com'
+    }
     text += `\n\nView proof: ${baseUrl}/tx/${transactionHash}`
   }
   
