@@ -2,17 +2,30 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Upload, Zap, Gift, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react'
+import { ArrowLeft, FileText, Upload, Zap, Gift, CheckCircle, AlertCircle, ExternalLink, Twitter, RefreshCw } from 'lucide-react'
+import { usePrivy } from '@privy-io/react-auth'
+import { useAccount, useChainId, useSwitchChain } from 'wagmi'
 import { EmailProofUpload } from './EmailProofUpload'
 import { EmailProofResult } from '@/lib/vlayer'
+import { mintKarmaNFT, MintNFTResult, generateBlockscoutUrls, generateTwitterShareUrl, getTargetChain } from '@/lib/karma-contracts'
 
 type ClaimStep = 'instructions' | 'upload' | 'processing' | 'proof' | 'minting' | 'complete'
 
 export function WikipediaClaim() {
+  const { user } = usePrivy()
+  const { isConnected } = useAccount()
+  const currentChainId = useChainId()
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain()
+  
   const [currentStep, setCurrentStep] = useState<ClaimStep>('instructions')
   const [emailProofResult, setEmailProofResult] = useState<EmailProofResult | null>(null)
+  const [mintResult, setMintResult] = useState<MintNFTResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Get target chain info
+  const targetChain = getTargetChain()
+  const isOnCorrectChain = currentChainId === targetChain.id
 
   const handleProofGenerated = (result: EmailProofResult) => {
     console.log('Email proof generated:', result)
@@ -26,23 +39,120 @@ export function WikipediaClaim() {
     setError(errorMessage)
   }
 
+  const handleSwitchChain = async () => {
+    try {
+      await switchChain({ chainId: targetChain.id })
+    } catch (error: any) {
+      console.error('Chain switch error:', error)
+      setError(`Failed to switch to ${targetChain.name}. Please switch manually in your wallet.`)
+    }
+  }
+
   const handleMintNFT = async () => {
-    if (!emailProofResult) return
+    if (!emailProofResult || !user?.wallet?.address) {
+      setError('Missing proof data or wallet connection')
+      return
+    }
+
+    if (!isConnected) {
+      setError('Please connect your wallet first')
+      return
+    }
+
+    if (!isOnCorrectChain) {
+      setError(`Please switch to ${targetChain.name} network first`)
+      return
+    }
     
     setCurrentStep('minting')
     setIsProcessing(true)
     
     try {
-      // TODO: Implement actual NFT minting with the proof
-      // This would call the EmailProofVerifier contract with the proof result
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      console.log('Starting NFT minting process...')
+      
+      // Mint the Karma NFT using the proof verifier
+      const result = await mintKarmaNFT({
+        proof: emailProofResult.proof,
+        emailHash: emailProofResult.emailHash,
+        targetWallet: emailProofResult.targetWallet,
+        donationAmount: emailProofResult.donationAmount
+      }, user.wallet.address)
+      
+      console.log('NFT minting successful:', result)
+      setMintResult(result)
       setCurrentStep('complete')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Minting error:', error)
-      setError('Failed to mint NFT. Please try again.')
+      setError(`Failed to mint NFT: ${error.message}`)
+      setCurrentStep('proof') // Go back to proof step
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  const handleViewOnBlockscout = () => {
+    if (!mintResult) return
+    
+    const urls = generateBlockscoutUrls(mintResult.tokenId, mintResult.transactionHash)
+    if (urls.transaction) {
+      window.open(urls.transaction, '_blank')
+    }
+  }
+
+  const handleShareOnTwitter = () => {
+    if (!emailProofResult || !mintResult) return
+    
+    const twitterUrl = generateTwitterShareUrl({
+      donationAmount: emailProofResult.donationAmount,
+      transactionHash: mintResult.transactionHash,
+      tokenId: mintResult.tokenId
+    })
+    
+    window.open(twitterUrl, '_blank')
+  }
+
+  const renderNetworkAlert = () => {
+    if (!isConnected) {
+      return (
+        <div className="alert alert-warning mb-6">
+          <AlertCircle className="w-5 h-5" />
+          <div>
+            <h4 className="font-bold">Wallet Not Connected</h4>
+            <p className="text-sm">Please connect your wallet to continue</p>
+          </div>
+        </div>
+      )
+    }
+
+    if (!isOnCorrectChain) {
+      return (
+        <div className="alert alert-error mb-6">
+          <AlertCircle className="w-5 h-5" />
+          <div>
+            <h4 className="font-bold">Wrong Network</h4>
+            <p className="text-sm">
+              You're on chain ID {currentChainId}, but this app requires {targetChain.name} (Chain ID: {targetChain.id})
+            </p>
+          </div>
+          <button 
+            onClick={handleSwitchChain}
+            disabled={isSwitchingChain}
+            className="btn btn-primary btn-sm"
+          >
+            {isSwitchingChain ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Switching...
+              </>
+            ) : (
+              `Switch to ${targetChain.name}`
+            )}
+          </button>
+        </div>
+      )
+    }
+
+    return null
   }
 
   const renderStepIndicator = () => {
@@ -97,6 +207,9 @@ export function WikipediaClaim() {
       {/* Step Indicator */}
       {renderStepIndicator()}
 
+      {/* Network Alert */}
+      {renderNetworkAlert()}
+
       {/* Error Alert */}
       {error && (
         <div className="alert alert-error mb-6">
@@ -146,7 +259,7 @@ export function WikipediaClaim() {
                   <ol className="list-decimal list-inside space-y-2 text-sm">
                     <li>Visit <a href="https://donate.wikimedia.org" target="_blank" rel="noopener noreferrer" className="link link-primary">donate.wikimedia.org</a></li>
                     <li>Choose your donation amount (any amount eligible for Karma)</li>
-                    <li>In the donation message, include your wallet address: <code className="bg-base-300 px-1 rounded text-xs">0x...</code></li>
+                    <li>In the donation message, include your wallet address: <code className="bg-base-300 px-1 rounded text-xs">{user?.wallet?.address || '0x...'}</code></li>
                     <li>Complete the donation process</li>
                     <li>Check your email for the donation confirmation</li>
                   </ol>
@@ -262,13 +375,47 @@ export function WikipediaClaim() {
               <div className="card-actions justify-center">
                 <button 
                   onClick={handleMintNFT}
-                  disabled={isProcessing}
+                  disabled={isProcessing || !user?.wallet?.address || !isConnected || !isOnCorrectChain}
                   className="btn btn-primary btn-lg"
                 >
                   <Gift className="w-5 h-5" />
                   Mint Karma NFT
                 </button>
               </div>
+
+              {!isConnected && (
+                <div className="alert alert-warning max-w-md mx-auto">
+                  <AlertCircle className="w-5 h-5" />
+                  <div>
+                    <h4 className="font-bold">Wallet Required</h4>
+                    <p className="text-sm">Please connect your wallet to mint the NFT</p>
+                  </div>
+                </div>
+              )}
+
+              {isConnected && !isOnCorrectChain && (
+                <div className="alert alert-error max-w-md mx-auto">
+                  <AlertCircle className="w-5 h-5" />
+                  <div>
+                    <h4 className="font-bold">Wrong Network</h4>
+                    <p className="text-sm">Please switch to {targetChain.name} to mint the NFT</p>
+                  </div>
+                  <button 
+                    onClick={handleSwitchChain}
+                    disabled={isSwitchingChain}
+                    className="btn btn-primary btn-sm"
+                  >
+                    {isSwitchingChain ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Switching...
+                      </>
+                    ) : (
+                      `Switch to ${targetChain.name}`
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -283,7 +430,7 @@ export function WikipediaClaim() {
               <div className="flex flex-col items-center space-y-4">
                 <span className="loading loading-spinner loading-lg text-primary"></span>
                 <div className="text-sm text-base-content/60">
-                  Your NFT is being minted on the blockchain using the verified proof
+                  Submitting proof to KarmaProofVerifier contract...
                 </div>
               </div>
 
@@ -302,7 +449,7 @@ export function WikipediaClaim() {
             </div>
           )}
 
-          {currentStep === 'complete' && emailProofResult && (
+          {currentStep === 'complete' && emailProofResult && mintResult && (
             <div className="space-y-6 text-center">
               <div className="text-6xl mb-4">🎉</div>
               <h2 className="card-title text-2xl justify-center">Congratulations!</h2>
@@ -321,6 +468,9 @@ export function WikipediaClaim() {
                       <div className="badge badge-success badge-sm">vlayer Verified</div>
                     </div>
                     <div className="text-xs text-base-content/60 mt-2">
+                      Token ID: {mintResult.tokenId.slice(0, 8)}...
+                    </div>
+                    <div className="text-xs text-base-content/60">
                       Wallet: {emailProofResult.targetWallet.slice(0, 6)}...{emailProofResult.targetWallet.slice(-4)}
                     </div>
                   </div>
@@ -339,15 +489,21 @@ export function WikipediaClaim() {
               </div>
 
               <div className="space-y-3">
-                <button className="btn btn-outline btn-wide">
+                <button 
+                  onClick={handleViewOnBlockscout}
+                  className="btn btn-outline btn-wide"
+                >
                   <ExternalLink className="w-4 h-4" />
                   View on Blockscout
                 </button>
                 
                 <div className="divider">Share your achievement</div>
                 
-                <button className="btn btn-primary btn-outline">
-                  <ExternalLink className="w-4 h-4" />
+                <button 
+                  onClick={handleShareOnTwitter}
+                  className="btn btn-primary btn-outline"
+                >
+                  <Twitter className="w-4 h-4" />
                   Share on Twitter
                 </button>
               </div>

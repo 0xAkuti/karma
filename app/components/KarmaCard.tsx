@@ -1,6 +1,7 @@
 'use client'
 
 import { Shield, Calendar, ExternalLink } from 'lucide-react'
+import { generateBlockscoutUrls } from '@/lib/karma-contracts'
 
 interface KarmaNFT {
   id: number
@@ -11,6 +12,8 @@ interface KarmaNFT {
   dateEarned: string
   imageUrl: string
   verified: boolean
+  tokenId?: string
+  transactionHash?: string
 }
 
 interface KarmaCardProps {
@@ -32,6 +35,20 @@ export function KarmaCard({ nft }: KarmaCardProps) {
         return 'badge-warning'
       default:
         return 'badge-primary'
+    }
+  }
+
+  const handleViewOnExplorer = () => {
+    if (nft.tokenId) {
+      const urls = generateBlockscoutUrls(nft.tokenId, nft.transactionHash)
+      const targetUrl = urls.transaction || urls.token
+      if (targetUrl) {
+        window.open(targetUrl, '_blank')
+      }
+    } else {
+      // Fallback for mock data - open general blockscout
+      const baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_API_URL?.replace('/api', '') || 'https://testnet.flowdiver.io'
+      window.open(baseUrl, '_blank')
     }
   }
 
@@ -61,6 +78,13 @@ export function KarmaCard({ nft }: KarmaCardProps) {
         {/* Description */}
         <p className="text-neutral/70 text-sm mb-4">{nft.description}</p>
 
+        {/* Token ID (if available) */}
+        {nft.tokenId && (
+          <div className="text-xs text-neutral/60 mb-2 font-mono">
+            Token ID: {nft.tokenId.slice(0, 8)}...{nft.tokenId.slice(-6)}
+          </div>
+        )}
+
         {/* Stats */}
         <div className="flex items-center justify-between mb-4">
           <div className="stat-container">
@@ -75,7 +99,10 @@ export function KarmaCard({ nft }: KarmaCardProps) {
 
         {/* Actions */}
         <div className="card-actions justify-end">
-          <button className="btn btn-ghost btn-sm">
+          <button 
+            onClick={handleViewOnExplorer}
+            className="btn btn-ghost btn-sm"
+          >
             <ExternalLink className="w-4 h-4" />
             View on Explorer
           </button>
