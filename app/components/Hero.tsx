@@ -6,21 +6,6 @@ import { Heart, Award, Shield, Sparkles } from 'lucide-react'
 export function Hero() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 to-secondary/10">
-      {/* Header */}
-      <div className="navbar bg-base-100 shadow-sm">
-        <div className="navbar-start">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold karma-gradient">Karma</span>
-          </div>
-        </div>
-        <div className="navbar-end">
-          <WalletConnect />
-        </div>
-      </div>
-
       {/* Hero Content */}
       <div className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
