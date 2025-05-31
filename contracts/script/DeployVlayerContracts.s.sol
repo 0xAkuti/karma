@@ -8,10 +8,12 @@ import "../src/KarmaProofVerifier.sol";
 import "../src/KarmaNFT.sol";
 
 contract DeployVlayerContracts is Script {
+
+    address constant ETHGLOBAL_DEPLOYER = 0xb5d4C2867083BB70C81a3483ca51557194E37992;
     
     function run() external {
         // Start broadcasting transactions (private key is passed via --private-key flag)
-        vm.startBroadcast();
+        vm.startBroadcast(ETHGLOBAL_DEPLOYER);
         
         console.log("Deploying vlayer contracts...");
         console.log("Deployer address:", msg.sender);
@@ -21,11 +23,18 @@ contract DeployVlayerContracts is Script {
         // Deploy EmailDomainProver first (no constructor parameters)
         EmailDomainProver prover = new EmailDomainProver();        
         // Deploy KarmaNFT        
-        KarmaNFT karmaNFT = new KarmaNFT(msg.sender, "https://faucet.vlayer.xyz/api/xBadgeMeta?handle=");
+        KarmaNFT karmaNFT = new KarmaNFT(ETHGLOBAL_DEPLOYER, "https://faucet.vlayer.xyz/api/xBadgeMeta?handle=");
+        
+        // Debug ownership
+        console.log("KarmaNFT owner:", karmaNFT.owner());
+        console.log("Current msg.sender:", msg.sender);
+        
         // Deploy KarmaProofVerifier with prover and karmaNFT addresses
         KarmaProofVerifier karmaVerifier = new KarmaProofVerifier(address(prover), address(karmaNFT));
 
         // Grant MINTER_ROLE to the verifier contract so it can mint NFTs
+        console.log("Granting MINTER_ROLE to verifier...");
+        console.log("MINTER_ROLE value:", karmaNFT.MINTER_ROLE());
         karmaNFT.grantRoles(address(karmaVerifier), karmaNFT.MINTER_ROLE());
         
         // Verify deployment
@@ -66,6 +75,7 @@ contract DeployVlayerContracts is Script {
     function getNetworkName(uint256 chainId) internal pure returns (string memory) {
         if (chainId == 1) return "Ethereum Mainnet";
         if (chainId == 545) return "Flow Testnet";
+        if (chainId == 84532) return "Base Sepolia";
         if (chainId == 31337) return "Anvil Local";
         return "Unknown Network";
     }

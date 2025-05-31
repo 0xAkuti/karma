@@ -16,7 +16,7 @@ contract KarmaProofVerifier is Verifier {
         karmaNFT = _karmaNFT;
     }
 
-    function verify(Proof calldata, bytes32 _karmaHash, address _targetWallet)
+    function verify(Proof calldata, bytes32 _karmaHash, address _targetWallet, string memory _donationAmount)
         public
         onlyVerified(prover, EmailDomainProver.main.selector)
     {
