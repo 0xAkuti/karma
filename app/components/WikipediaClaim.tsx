@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Upload, Zap, Gift, CheckCircle, AlertCircle, ExternalLink, Twitter, RefreshCw, Share2, Copy, Eye } from 'lucide-react'
+import { ArrowLeft, FileText, Upload, Zap, Gift, CheckCircle, AlertCircle, ExternalLink, Twitter, RefreshCw, Share2, Copy, Eye, Clock, Check, X } from 'lucide-react'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { useAccount, useChainId } from 'wagmi'
 import { useSetActiveWallet } from '@privy-io/wagmi'
 import { EmailProofUpload } from './EmailProofUpload'
 import { EmailProofResult } from '@/lib/vlayer'
-import { mintKarmaNFT, MintNFTResult, generateBlockscoutUrls, generateTwitterShareUrl, getTargetChain, requestChainSwitch } from '@/lib/karma-contracts'
+import { mintKarmaNFT, MintNFTResult, generateBlockscoutUrls, generateTwitterShareUrl, getTargetChain, requestChainSwitch, getContractAddresses } from '@/lib/karma-contracts'
 import { useNotification } from '@blockscout/app-sdk'
+import { useTransactionStatus } from '@/hooks/useTransactionStatus'
+import { useNFTDetails } from '@/hooks/useNFTDetails'
 
 type ClaimStep = 'instructions' | 'upload' | 'processing' | 'proof' | 'minting' | 'complete'
 
@@ -28,11 +30,34 @@ export function WikipediaClaim() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSwitchingChain, setIsSwitchingChain] = useState(false)
   const [mounted, setMounted] = useState(false)
+  
+  // Transaction status tracking
+  const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '545'
+  const { status: txStatus, isPolling } = useTransactionStatus(
+    mintResult?.transactionHash || null, 
+    chainId
+  )
+  
+  // NFT details fetching - get contract address from config
+  const contracts = getContractAddresses()
+  const { nftDetails, isLoading: isLoadingNFT, error: nftError } = useNFTDetails(
+    mintResult ? contracts.karmaNFT : null,
+    mintResult?.tokenId || null
+  )
 
   // Handle hydration
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Auto-progress to complete step when transaction is successful
+  useEffect(() => {
+    if (txStatus.status === 'success' && currentStep === 'minting') {
+      // Give more time for the toast notification and let user manually proceed
+      // Remove auto-progression for now - let users click the button
+      console.log('Transaction successful, showing View NFT button')
+    }
+  }, [txStatus.status, currentStep])
 
   // Get target chain info
   const targetChain = getTargetChain()
@@ -106,7 +131,6 @@ export function WikipediaClaim() {
       console.log('NFT minting successful:', result)
       
       // Show transaction toast notification
-      const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '545'
       openTxToast(chainId, result.transactionHash)
       
       setMintResult(result)
@@ -458,16 +482,142 @@ export function WikipediaClaim() {
             <div className="space-y-6 text-center">
               <div className="text-6xl mb-4">🎨</div>
               <h2 className="card-title text-2xl justify-center">Minting Your NFT</h2>
-              <p className="text-base-content/70">
-                Creating your soulbound Karma NFT with vlayer proof verification...
-              </p>
-
-              <div className="flex flex-col items-center space-y-4">
-                <span className="loading loading-spinner loading-lg text-primary"></span>
-                <div className="text-sm text-base-content/60">
-                  Submitting proof to KarmaProofVerifier contract...
+              
+              {/* Transaction Status Display */}
+              {mintResult ? (
+                <div className="space-y-4">
+                  <p className="text-base-content/70">
+                    Transaction submitted! Tracking status using Blockscout API...
+                  </p>
+                  
+                  {/* Transaction Hash */}
+                  <div className="max-w-md mx-auto bg-base-200 p-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Transaction:</span>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs">{mintResult.transactionHash.slice(0, 8)}...{mintResult.transactionHash.slice(-6)}</code>
+                        <button
+                          onClick={() => window.open(mintResult.blockscoutUrl, '_blank')}
+                          className="btn btn-xs btn-ghost"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Status Indicator */}
+                  <div className="flex flex-col items-center space-y-3">
+                    {txStatus.status === 'pending' && (
+                      <>
+                        <span className="loading loading-spinner loading-lg text-primary"></span>
+                        <div className="flex items-center gap-2 text-warning">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-sm">Transaction pending...</span>
+                        </div>
+                        {txStatus.confirmations !== undefined && (
+                          <div className="text-xs text-base-content/60">
+                            Confirmations: {txStatus.confirmations}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {txStatus.status === 'success' && (
+                      <>
+                        <div className="text-success text-4xl">✅</div>
+                        <div className="flex items-center gap-2 text-success">
+                          <Check className="w-4 h-4" />
+                          <span className="text-sm font-medium">Transaction confirmed!</span>
+                        </div>
+                        {txStatus.confirmations && (
+                          <div className="text-xs text-base-content/60">
+                            Block: {txStatus.blockNumber} • Confirmations: {txStatus.confirmations}
+                          </div>
+                        )}
+                        {txStatus.gasUsed && (
+                          <div className="text-xs text-base-content/60">
+                            Gas used: {parseInt(txStatus.gasUsed).toLocaleString()}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {txStatus.status === 'error' && (
+                      <>
+                        <div className="text-error text-4xl">❌</div>
+                        <div className="flex items-center gap-2 text-error">
+                          <X className="w-4 h-4" />
+                          <span className="text-sm font-medium">Transaction failed</span>
+                        </div>
+                        {txStatus.error && (
+                          <div className="alert alert-error max-w-md mx-auto">
+                            <AlertCircle className="w-4 h-4" />
+                            <div className="text-left">
+                              <div className="font-medium text-sm">Error Details:</div>
+                              <div className="text-xs">{txStatus.error}</div>
+                              {txStatus.revertReason && (
+                                <div className="text-xs mt-1">
+                                  <span className="font-medium">Revert reason:</span> {txStatus.revertReason}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {txStatus.status === 'not_found' && (
+                      <>
+                        <span className="loading loading-spinner loading-md text-warning"></span>
+                        <div className="flex items-center gap-2 text-warning">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-sm">Waiting for transaction to appear...</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Auto-progress to complete when successful */}
+                  {txStatus.status === 'success' && (
+                    <div className="pt-4">
+                      <button 
+                        onClick={() => setCurrentStep('complete')}
+                        className="btn btn-primary"
+                      >
+                        View Your NFT
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Retry button on error */}
+                  {txStatus.status === 'error' && (
+                    <div className="pt-4">
+                      <button 
+                        onClick={() => {
+                          setMintResult(null)
+                          setCurrentStep('proof')
+                        }}
+                        className="btn btn-outline"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-base-content/70">
+                    Creating your soulbound Karma NFT with vlayer proof verification...
+                  </p>
+                  <div className="flex flex-col items-center space-y-4">
+                    <span className="loading loading-spinner loading-lg text-primary"></span>
+                    <div className="text-sm text-base-content/60">
+                      Submitting proof to KarmaProofVerifier contract...
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {emailProofResult && (
                 <div className="max-w-sm mx-auto">
@@ -492,24 +642,139 @@ export function WikipediaClaim() {
                 Your Karma NFT has been successfully minted with vlayer verification
               </p>
 
-              <div className="max-w-sm mx-auto">
-                <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
-                  <div className="card-body items-center">
-                    <div className="text-4xl mb-2">📚</div>
-                    <h3 className="card-title text-lg">Donation Amount Verified</h3>
-                    <p className="text-center text-sm mb-2">{emailProofResult.donationAmount}</p>
-                    <div className="flex gap-2">
-                      <div className="badge badge-primary badge-sm">Soulbound NFT</div>
-                      <div className="badge badge-success badge-sm">vlayer Verified</div>
-                    </div>
-                    <div className="text-xs text-base-content/60 mt-2">
-                      Token ID: {mintResult.tokenId.slice(0, 8)}...
-                    </div>
-                    <div className="text-xs text-base-content/60">
-                      Wallet: {emailProofResult.targetWallet.slice(0, 6)}...{emailProofResult.targetWallet.slice(-4)}
+              {/* NFT Display */}
+              <div className="max-w-lg mx-auto">
+                {isLoadingNFT ? (
+                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
+                    <div className="card-body items-center">
+                      <span className="loading loading-spinner loading-md"></span>
+                      <p className="text-sm">Loading NFT details from Blockscout...</p>
                     </div>
                   </div>
-                </div>
+                ) : nftError ? (
+                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
+                    <div className="card-body items-center">
+                      <div className="text-4xl mb-2">📚</div>
+                      <h3 className="card-title text-lg">Karma NFT #{mintResult.tokenId.slice(0, 8)}...</h3>
+                      <p className="text-center text-sm mb-2">{emailProofResult.donationAmount} Donation</p>
+                      <div className="flex gap-2">
+                        <div className="badge badge-primary badge-sm">Soulbound NFT</div>
+                        <div className="badge badge-success badge-sm">vlayer Verified</div>
+                      </div>
+                      <div className="text-xs text-warning mt-2">
+                        ⚠️ Could not load metadata from Blockscout
+                      </div>
+                    </div>
+                  </div>
+                ) : nftDetails ? (
+                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
+                    <div className="card-body items-center">
+                      {/* NFT Image */}
+                      {nftDetails.image ? (
+                        <img 
+                          src={nftDetails.image} 
+                          alt={nftDetails.name}
+                          className="w-32 h-32 rounded-lg object-cover mb-4"
+                          onError={(e) => {
+                            // Fallback to emoji if image fails to load
+                            const target = e.target as HTMLImageElement
+                            target.style.display = 'none'
+                            target.nextElementSibling?.classList.remove('hidden')
+                          }}
+                        />
+                      ) : null}
+                      <div className={`text-4xl mb-2 ${nftDetails.image ? 'hidden' : ''}`}>📚</div>
+                      
+                      {/* NFT Details */}
+                      <h3 className="card-title text-lg">{nftDetails.name}</h3>
+                      <p className="text-center text-sm mb-2">{nftDetails.description}</p>
+                      
+                      {/* Donation Amount */}
+                      <div className="bg-primary/10 px-3 py-1 rounded-full mb-2">
+                        <span className="text-sm font-medium">{emailProofResult.donationAmount} Donation</span>
+                      </div>
+                      
+                      {/* Badges */}
+                      <div className="flex gap-2 mb-3">
+                        <div className="badge badge-primary badge-sm">Soulbound NFT</div>
+                        <div className="badge badge-success badge-sm">vlayer Verified</div>
+                        <div className="badge badge-info badge-sm">Blockscout Verified</div>
+                      </div>
+                      
+                      {/* NFT Attributes */}
+                      {nftDetails.attributes && nftDetails.attributes.length > 0 && (
+                        <div className="w-full">
+                          <h4 className="text-sm font-medium mb-2">Attributes</h4>
+                          <div className="grid grid-cols-2 gap-2">
+                            {nftDetails.attributes.map((attr, index) => (
+                              <div key={index} className="bg-base-200 p-2 rounded text-xs">
+                                <div className="font-medium">{attr.trait_type}</div>
+                                <div className="text-base-content/70">{attr.value}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Technical Details */}
+                      <div className="text-xs text-base-content/60 mt-3 space-y-1">
+                        <div>Token ID: {mintResult.tokenId.slice(0, 8)}...{mintResult.tokenId.slice(-6)}</div>
+                        <div>Contract: {contracts.karmaNFT.slice(0, 6)}...{contracts.karmaNFT.slice(-4)}</div>
+                        <div>Wallet: {emailProofResult.targetWallet.slice(0, 6)}...{emailProofResult.targetWallet.slice(-4)}</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="card bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30">
+                    <div className="card-body items-center">
+                      <div className="text-4xl mb-2">📚</div>
+                      <h3 className="card-title text-lg">Karma NFT</h3>
+                      <p className="text-center text-sm mb-2">{emailProofResult.donationAmount} Donation</p>
+                      <div className="flex gap-2 mb-3">
+                        <div className="badge badge-primary badge-sm">Soulbound NFT</div>
+                        <div className="badge badge-success badge-sm">vlayer Verified</div>
+                      </div>
+                      <div className="text-xs text-base-content/60 mt-2 space-y-1">
+                        <div>Token ID: {mintResult.tokenId.slice(0, 8)}...{mintResult.tokenId.slice(-6)}</div>
+                        <div>Contract: {contracts.karmaNFT.slice(0, 6)}...{contracts.karmaNFT.slice(-4)}</div>
+                        <div>Wallet: {emailProofResult.targetWallet.slice(0, 6)}...{emailProofResult.targetWallet.slice(-4)}</div>
+                      </div>
+                      
+                      {/* Debug info - temporarily show the full values */}
+                      <div className="bg-warning/10 p-2 rounded mt-3 text-xs">
+                        <div className="font-medium text-warning mb-1">Debug Info:</div>
+                        <div>Contract: {contracts.karmaNFT}</div>
+                        <div>Token ID: {mintResult.tokenId}</div>
+                        <div>NFT Error: {nftError}</div>
+                        <div>Loading: {isLoadingNFT ? 'Yes' : 'No'}</div>
+                        
+                        {nftError && (
+                          <div className="mt-2">
+                            <button 
+                              onClick={() => {
+                                console.log('Retrying NFT details fetch...')
+                                // Get the refetch function from the hook
+                                if (window.location.reload) {
+                                  window.location.reload()
+                                }
+                              }}
+                              className="btn btn-xs btn-warning"
+                            >
+                              Retry Fetch
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="alert alert-info text-xs mt-3">
+                        <div>
+                          <div className="font-medium">Note:</div>
+                          <div>NFT metadata may take a few minutes to appear on Blockscout after minting.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="alert alert-info max-w-md mx-auto">

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Trophy, TrendingUp, Medal, Star, ChevronUp, ChevronDown, Flame, Award, Users, BarChart3 } from 'lucide-react'
 import { LeaderboardStats } from './LeaderboardStats'
+import { KarmaDistributionChart } from './KarmaDistributionChart'
 
 // Mock data for leaderboard
 interface LeaderboardUser {
