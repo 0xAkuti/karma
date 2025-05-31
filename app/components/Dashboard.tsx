@@ -3,7 +3,7 @@
 import { usePrivy } from '@privy-io/react-auth'
 import Link from 'next/link'
 import { KarmaCard } from './KarmaCard'
-import { Sparkles, Plus, Award, Trophy, Star } from 'lucide-react'
+import { Sparkles, Plus, Award, Trophy, Star, Target } from 'lucide-react'
 
 // Mock data for development
 const mockKarmaNFTs = [
@@ -80,10 +80,14 @@ export function Dashboard() {
 
       {/* Quick Actions */}
       <div className="mb-8">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <Link href="/claim" className="btn btn-primary btn-lg">
             <Plus className="w-5 h-5" />
             Claim New Karma
+          </Link>
+          <Link href="/campaigns" className="btn btn-outline">
+            <Target className="w-5 h-5" />
+            View Challenges
           </Link>
           <Link href="/shop" className="btn btn-outline">
             <Award className="w-5 h-5" />
