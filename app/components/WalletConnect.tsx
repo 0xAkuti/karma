@@ -86,14 +86,12 @@ function TransactionHistoryButton({ userAddress }: { userAddress?: string }) {
   }
 
   return (
-    <li>
-      <button 
-        onClick={handleViewTransactions}
-        className="flex items-center gap-2 px-4 py-2 hover:bg-base-200 w-full text-left"
-      >
-        <History className="w-4 h-4" />
-        Transaction History
-      </button>
-    </li>
+    <button 
+      onClick={handleViewTransactions}
+      className="flex items-center gap-2 px-4 py-2 hover:bg-base-200 w-full text-left"
+    >
+      <History className="w-4 h-4" />
+      Transaction History
+    </button>
   )
 } 

@@ -8,7 +8,6 @@ import { NotificationProvider, TransactionPopupProvider } from '@blockscout/app-
 import { config } from '../lib/wagmi'
 import { flowTestnet, anvilLocal } from '../lib/wagmi'
 import { TransactionPopupListener } from '../components/TransactionPopupListener'
-import { TransactionNotificationManager } from '../components/TransactionNotificationManager'
 
 console.log('Providers.tsx is loading...')
 
@@ -34,7 +33,6 @@ function BlockscoutProviders({ children }: { children: React.ReactNode }) {
       <NotificationProvider>
         <TransactionPopupProvider>
           <TransactionPopupListener />
-          <TransactionNotificationManager />
           {children}
         </TransactionPopupProvider>
       </NotificationProvider>

@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Upload, Zap, Gift, CheckCircle, AlertCircle, ExternalLink, Twitter, RefreshCw } from 'lucide-react'
-import { usePrivy } from '@privy-io/react-auth'
+import { ArrowLeft, FileText, Upload, Zap, Gift, CheckCircle, AlertCircle, ExternalLink, Twitter, RefreshCw, Share2, Copy, Eye } from 'lucide-react'
+import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { useAccount, useChainId } from 'wagmi'
-import { useWallets } from '@privy-io/react-auth'
 import { useSetActiveWallet } from '@privy-io/wagmi'
 import { EmailProofUpload } from './EmailProofUpload'
 import { EmailProofResult } from '@/lib/vlayer'
 import { mintKarmaNFT, MintNFTResult, generateBlockscoutUrls, generateTwitterShareUrl, getTargetChain, requestChainSwitch } from '@/lib/karma-contracts'
+import { useNotification } from '@blockscout/app-sdk'
 
 type ClaimStep = 'instructions' | 'upload' | 'processing' | 'proof' | 'minting' | 'complete'
 
@@ -19,6 +19,7 @@ export function WikipediaClaim() {
   const { wallets } = useWallets()
   const { setActiveWallet } = useSetActiveWallet()
   const currentChainId = useChainId()
+  const { openTxToast } = useNotification()
   
   const [currentStep, setCurrentStep] = useState<ClaimStep>('instructions')
   const [emailProofResult, setEmailProofResult] = useState<EmailProofResult | null>(null)
@@ -106,14 +107,7 @@ export function WikipediaClaim() {
       
       // Show transaction toast notification
       const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '545'
-      const event = new CustomEvent('showTransactionToast', {
-        detail: {
-          chainId,
-          txHash: result.transactionHash,
-        }
-      })
-      
-      window.dispatchEvent(event)
+      openTxToast(chainId, result.transactionHash)
       
       setMintResult(result)
       setCurrentStep('complete')
