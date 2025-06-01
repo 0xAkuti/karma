@@ -23,18 +23,18 @@ contract KarmaProofVerifier is Verifier {
         public
         onlyVerified(prover, EmailDomainProver.main.selector)
     {
-        uint256 tokenId = uint256(keccak256(abi.encodePacked(_karmaHash, blockhash(block.number - 1))));
-        KarmaNFT(karmaNFT).mint(msg.sender, tokenId, IERC5484.BurnAuth.OwnerOnly);
-        KarmaToken(karmaToken).mint(msg.sender, 10e18);
+        uint256 tokenId = uint256(keccak256(abi.encodePacked(_karmaHash, blockhash(block.number - 1)))); // only used so we can demo with the same email repeatedly
+        KarmaNFT(karmaNFT).mint(msg.sender, tokenId, IERC5484.BurnAuth.OwnerOnly, _donationAmount);
+        KarmaToken(karmaToken).mint(msg.sender, 20e18); // TODO: make this dynamic based on donation amount
     }
 
     function verifySkip(Proof calldata, bytes32 _karmaHash, string memory _donationAmount)
         public
     {
-        //require(block.chainid == 545, "Only supported on Flow chain");
+        // require(block.chainid == 545, "Only supported on Flow chain");
         // used for Flow chain as vLayer currently does not support it
-        uint256 tokenId = uint256(keccak256(abi.encodePacked(_karmaHash, blockhash(block.number - 1))));
-        KarmaNFT(karmaNFT).mint(msg.sender, tokenId, IERC5484.BurnAuth.OwnerOnly);
-        //KarmaToken(karmaToken).mint(msg.sender, 10e18);
+        uint256 tokenId = uint256(keccak256(abi.encodePacked(_karmaHash, blockhash(block.number - 1)))); // only used so we can demo with the same email repeatedly
+        KarmaNFT(karmaNFT).mint(msg.sender, tokenId, IERC5484.BurnAuth.OwnerOnly, _donationAmount);
+        KarmaToken(karmaToken).mint(msg.sender, 20e18);
     }
 }

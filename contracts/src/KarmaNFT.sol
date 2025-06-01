@@ -33,6 +33,8 @@ contract KarmaNFT is ERC721, OwnableRoles, IERC5484 {
     // --- Storage Hitchhiking: BurnAuth stored in ERC721 _extraData (uint96) --- 
     // We use the lower 2 bits of the 96 available extraData bits for BurnAuth.
     uint256 private constant _BURN_AUTH_MASK = 0x3; // Binary 11, to isolate 2 bits for BurnAuth enum
+    
+    mapping(uint256 => string) public karmaAmounts; // TODO store as uint in extraData as well
 
     event BaseTokenURIChanged(string oldBaseURI, string newBaseURI);
     
@@ -43,8 +45,6 @@ contract KarmaNFT is ERC721, OwnableRoles, IERC5484 {
         if (initialOwner == address(0)) revert("KarmaNFT: Initial owner cannot be zero address");
         _initializeOwner(initialOwner);
         _setBaseTokenURI(initialBaseTokenURI);
-        // The initialOwner can grant MINTER_ROLE to the backend wallet post-deployment
-        // Example: grantRole(MINTER_ROLE, backendAddress);
     }
 
     function name() public view virtual override returns (string memory) {
@@ -100,7 +100,7 @@ contract KarmaNFT is ERC721, OwnableRoles, IERC5484 {
      * Can only be called by the `minterAddress`.
      * The `tokenURI_` is set for the `tokenId`.
      */
-    function mint(address to, uint256 tokenId, BurnAuth _burnAuth) public virtual {
+    function mint(address to, uint256 tokenId, BurnAuth _burnAuth, string memory _karmaAmount) public virtual {
         _checkRoles(MINTER_ROLE); // Throws if msg.sender doesn't have MINTER_ROLE
         
         if (to == address(0)) {
@@ -111,7 +111,7 @@ contract KarmaNFT is ERC721, OwnableRoles, IERC5484 {
         }
 
         _mintAndSetExtraDataUnchecked(to, tokenId, uint96(_burnAuth));
-        
+        karmaAmounts[tokenId] = _karmaAmount;
         emit Issued(msg.sender, to, tokenId, _burnAuth); // msg.sender is the issuer (minter)
     }
 
@@ -159,7 +159,7 @@ contract KarmaNFT is ERC721, OwnableRoles, IERC5484 {
         if (!_exists(tokenId)) {
             revert TokenDoesNotExist();
         }
-        return string(abi.encodePacked(baseTokenURI, LibString.toString(tokenId)));
+        return string(abi.encodePacked(baseTokenURI, karmaAmounts[tokenId]));
     }
 
     // ---- ERC5484-required view function ----

@@ -14,7 +14,6 @@ contract EmailDomainProver is Prover {
     using EmailProofLib for UnverifiedEmail;
 
     string public constant VALID_EMAIL_DOMAIN = "wikimedia.org";
-    //string public constant VALID_EMAIL_DOMAIN = "vlayer.xyz";
 
     function main(UnverifiedEmail calldata unverifiedEmail)
         public
@@ -32,7 +31,7 @@ contract EmailDomainProver is Prover {
         require(captures.length == 2, "invalid email domain");
         require(keccak256(bytes(captures[1])) == keccak256(bytes(VALID_EMAIL_DOMAIN)), "invalid email domain");
 
-        // Extract donation amount from email body
+        // Extract donation amount from email body independently of the currency
         string[] memory amount = email.body.capture("^[\\s\\S]*\\b[A-Z]{3}\\s+\\D?(\\d+\\.\\d{2})[\\s\\S]*$");
         console.log("amount", amount[1]);
 

@@ -24,7 +24,7 @@ contract DeployVlayerContracts is Script {
         // Deploy EmailDomainProver first (no constructor parameters)
         EmailDomainProver prover = new EmailDomainProver();        
         // Deploy KarmaNFT        
-        KarmaNFT karmaNFT = new KarmaNFT(ETHGLOBAL_DEPLOYER, "https://faucet.vlayer.xyz/api/xBadgeMeta?handle=");
+        KarmaNFT karmaNFT = new KarmaNFT(ETHGLOBAL_DEPLOYER, "https://karma-nine.vercel.app/api/nft?category=gift&karmaAmount=");
         // Deploy KarmaToken
         KarmaToken karmaToken = new KarmaToken(ETHGLOBAL_DEPLOYER);
         // Debug ownership
