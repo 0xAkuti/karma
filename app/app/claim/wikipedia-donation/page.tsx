@@ -1,5 +1,20 @@
+'use client'
+
 import { Suspense } from 'react'
-import { WikipediaClaim } from '../../../components/WikipediaClaim'
+import dynamic from 'next/dynamic'
+
+// Dynamic import with SSR disabled to prevent Blockscout hook issues during prerendering
+const WikipediaClaim = dynamic(
+  () => import('../../../components/WikipediaClaim').then(mod => ({ default: mod.WikipediaClaim })),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex justify-center items-center py-20">
+        <span className="loading loading-spinner loading-lg text-primary"></span>
+      </div>
+    )
+  }
+)
 
 export default function WikipediaDonationPage() {
   return (

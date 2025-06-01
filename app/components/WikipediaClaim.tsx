@@ -9,9 +9,9 @@ import { useSetActiveWallet } from '@privy-io/wagmi'
 import { EmailProofUpload } from './EmailProofUpload'
 import { EmailProofResult } from '@/lib/vlayer'
 import { mintKarmaNFT, MintNFTResult, generateBlockscoutUrls, generateTwitterShareUrl, getTargetChain, requestChainSwitch, getContractAddresses } from '@/lib/karma-contracts'
-import { useNotification } from '@blockscout/app-sdk'
 import { useTransactionStatus } from '@/hooks/useTransactionStatus'
 import { useNFTDetails } from '@/hooks/useNFTDetails'
+import { useNotificationSafe } from '@/hooks/useBlockscoutSafe'
 import { createPublicClient, http } from 'viem'
 
 type ClaimStep = 'instructions' | 'upload' | 'processing' | 'proof' | 'minting' | 'complete'
@@ -37,7 +37,7 @@ export function WikipediaClaim() {
   const { wallets } = useWallets()
   const { setActiveWallet } = useSetActiveWallet()
   const currentChainId = useChainId()
-  const { openTxToast } = useNotification()
+  const { openTxToast } = useNotificationSafe()
   
   const [currentStep, setCurrentStep] = useState<ClaimStep>('instructions')
   const [emailProofResult, setEmailProofResult] = useState<EmailProofResult | null>(null)

@@ -34,19 +34,18 @@ function BlockscoutProviders({ children }: { children: React.ReactNode }) {
 
   console.log('BlockscoutProviders rendering, isMounted:', isMounted)
 
-  if (!isMounted) {
-    console.log('BlockscoutProviders not mounted yet, returning children')
-    return <>{children}</>
-  }
-
   try {
-    console.log('Attempting to render Blockscout providers...')
+    console.log('Rendering Blockscout providers...')
     return (
       <NotificationProvider>
         <TransactionPopupProvider>
           <DebugComponent />
-          <TransactionPopupListener />
-          <TransactionNotificationManager />
+          {isMounted && (
+            <>
+              <TransactionPopupListener />
+              <TransactionNotificationManager />
+            </>
+          )}
           {children}
         </TransactionPopupProvider>
       </NotificationProvider>
