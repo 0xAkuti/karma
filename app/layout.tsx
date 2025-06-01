@@ -9,6 +9,7 @@ import { config } from '@/lib/wagmi'
 import { Header } from '@/components/Header'
 import { TransactionPopupListener } from '@/components/TransactionPopupListener'
 import { TransactionNotificationManager } from '@/components/TransactionNotificationManager'
+import { DebugInfo } from '@/components/DebugInfo'
 import { useState, useEffect } from 'react'
 import './globals.css'
 
@@ -87,6 +88,7 @@ export default function RootLayout({
                   <main>
                     {children}
                   </main>
+                  <DebugInfo />
                 </div>
               </BlockscoutProviders>
             </WagmiProvider>

@@ -53,7 +53,16 @@ export class VLayerEmailProver {
       console.log('Starting email proof generation...')
       console.log('Prover URL:', this.config.proverUrl)
       console.log('DNS URL:', this.config.dnsServiceUrl)
-      console.log('Chain ID:', chainId)
+      
+      // Check if SKIP_VERIFY is enabled for demo mode
+      const skipVerify = process.env.NEXT_PUBLIC_SKIP_VERIFY === 'true'
+      
+      // For SKIP_VERIFY mode, always use Base Sepolia for verification
+      const verificationChainId = skipVerify ? 84532 : chainId
+      
+      console.log('Chain ID (original):', chainId)
+      console.log('Chain ID (verification):', verificationChainId)
+      console.log('SKIP_VERIFY mode:', skipVerify)
       console.log('Prover Address:', this.proverAddress)
       
       // Preverify the email
@@ -65,12 +74,12 @@ export class VLayerEmailProver {
 
       console.log('Email preverified, generating proof...')
 
-      // Generate the proof
+      // Generate the proof - use verification chain ID (Base Sepolia for demo mode)
       const hash = await this.vlayerClient.prove({
         address: this.proverAddress,
         proverAbi: this.proverAbi,
         functionName: 'main',
-        chainId,
+        chainId: verificationChainId,
         args: [unverifiedEmail],
       })
 

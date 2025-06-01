@@ -13,6 +13,7 @@ export function DebugInfo() {
     'Verifier Contract': process.env.NEXT_PUBLIC_VLAYER_VERIFIER_CONTRACT_ADDRESS || 'Not set',
     'VLayer Prover URL': process.env.NEXT_PUBLIC_VLAYER_PROVER_URL || 'Not set',
     'VLayer DNS': process.env.NEXT_PUBLIC_VLAYER_DNS || 'Not set',
+    'Skip Verify (Demo Mode)': process.env.NEXT_PUBLIC_SKIP_VERIFY || 'false',
     'Node Env': process.env.NODE_ENV || 'Not set',
   }
 
@@ -44,7 +45,12 @@ export function DebugInfo() {
         {Object.entries(envVars).map(([key, value]) => (
           <div key={key} className="flex justify-between">
             <span className="font-medium text-base-content/70">{key}:</span>
-            <span className="text-primary font-mono text-right ml-2 break-all max-w-48">
+            <span className={`font-mono text-right ml-2 break-all max-w-48 ${
+              // Highlight demo mode when enabled
+              key === 'Skip Verify (Demo Mode)' && value === 'true' 
+                ? 'text-warning font-bold' 
+                : 'text-primary'
+            }`}>
               {value}
             </span>
           </div>
@@ -55,6 +61,14 @@ export function DebugInfo() {
         <div className="text-xs text-base-content/60">
           Current URL: {typeof window !== 'undefined' ? window.location.href : 'SSR'}
         </div>
+        {process.env.NEXT_PUBLIC_SKIP_VERIFY === 'true' && (
+          <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded text-xs">
+            <div className="text-warning font-semibold">⚠️ Demo Mode Active</div>
+            <div className="text-warning/80">
+              Email verification on Base Sepolia, minting on {process.env.NEXT_PUBLIC_CHAIN_ID === '545' ? 'Flow Testnet' : 'configured chain'}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

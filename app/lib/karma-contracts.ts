@@ -429,6 +429,9 @@ export async function mintKarmaNFT(
   // Check current chain and switch if necessary
   const targetChainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '545')
   
+  // Check if SKIP_VERIFY is enabled for demo mode
+  const skipVerify = process.env.NEXT_PUBLIC_SKIP_VERIFY === 'true'
+  
   try {
     // Get current chain from wallet
     const currentChainId = await window.ethereum?.request({ method: 'eth_chainId' })
@@ -450,17 +453,20 @@ export async function mintKarmaNFT(
       proof: proof,
       emailHash: emailHash,
       donationAmount: donationAmount,
-      account: connectedAccount
+      account: connectedAccount,
+      skipVerify: skipVerify,
+      functionName: skipVerify ? 'verifySkip' : 'verify'
     })
 
     // Ensure emailHash is properly formatted as hex string
     const formattedEmailHash = emailHash.startsWith('0x') ? emailHash : `0x${emailHash}`
 
-    // Call the verifier contract - msg.sender is automatically used as target wallet
+    // Call the verifier contract - use verifySkip for demo mode, verify for normal mode
+    const functionName = skipVerify ? 'verifySkip' : 'verify'
     const hash = await walletClient.writeContract({
       address: contracts.karmaProofVerifier as `0x${string}`,
       abi: KARMA_PROOF_VERIFIER_ABI,
-      functionName: 'verify',
+      functionName: functionName,
       args: [proof, formattedEmailHash as `0x${string}`, donationAmount],
       account: connectedAccount,
       chain: chain
@@ -848,7 +854,7 @@ async function fetchNFTsFromBlockscout(userAddress: string, contractAddress: str
   
   // Set Blockscout URL based on chain
   if (chain.id === 545) {
-    blockscoutUrl = 'https://evm-testnet.flowdx.org'
+    blockscoutUrl = 'https://evm-testnet.flowscan.io'
   } else if (chain.id === 84532) {
     blockscoutUrl = 'https://base-sepolia.blockscout.com'
   } else {
