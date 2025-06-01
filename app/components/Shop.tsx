@@ -6,6 +6,7 @@ import { usePrivy, useSignMessage as usePrivySignMessage } from '@privy-io/react
 import { useSignMessage as useWagmiSignMessage } from 'wagmi'
 import { RedemptionModal } from './RedemptionModal'
 import { KarmaBurnModal } from './KarmaBurnModal'
+import { MeritRain } from './MeritRain'
 import { redeemKarmaTokens, getKarmaTokenBalance, RedeemKarmaResult } from '@/lib/karma-contracts'
 
 interface Reward {
@@ -200,6 +201,9 @@ export function Shop() {
   const [meritsError, setMeritsError] = useState<string | null>(null)
   const [meritsSuccess, setMeritsSuccess] = useState<string | null>(null)
   const [apiKeyStatus, setApiKeyStatus] = useState<'checking' | 'valid' | 'invalid'>('checking')
+
+  // Merit rain effect state
+  const [showMeritRain, setShowMeritRain] = useState(false)
 
   // Karma token related state
   const [karmaBalance, setKarmaBalance] = useState<string>('0')
@@ -520,6 +524,9 @@ Expiration Time: ${expirationTime}`
         setKarmaBurnSuccess(true)
         setBurnedAmount(karmaRedeemAmount)
         
+        // Trigger merit rain effect
+        setShowMeritRain(true)
+        
         console.log(`Successfully redeemed ${karmaRedeemAmount} karma for ${meritsAmount} merits`)
       } catch (error) {
         console.error('Failed to redeem karma for merits:', error)
@@ -544,6 +551,10 @@ Expiration Time: ${expirationTime}`
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setSelectedReward(null)
+  }
+
+  const handleMeritRainComplete = () => {
+    setShowMeritRain(false)
   }
 
   const getCategoryColor = (category: string) => {
@@ -926,6 +937,13 @@ Expiration Time: ${expirationTime}`
           burnedAmount={burnedAmount}
         />
       )}
+
+      {/* Merit Rain Effect */}
+      <MeritRain 
+        isActive={showMeritRain} 
+        duration={8000}
+        onComplete={handleMeritRainComplete}
+      />
     </div>
   )
 } 
