@@ -46,7 +46,7 @@ const rewards: Reward[] = [
   {
     id: 'blockscout-merits',
     name: 'Blockscout Merits',
-    description: 'Convert your Karma into Blockscout Merits for blockchain explorer features',
+    description: 'Convert your Karma into Blockscout Merits to redeem for rewards.',
     cost: 100,
     icon: <Zap className="w-6 h-6" />,
     category: 'merits',
@@ -54,11 +54,11 @@ const rewards: Reward[] = [
     image: 'https://sourcify.dev/static/media/blockscout.823a50aeffebe304645d.png',
     features: [
       '1 Karma = 2 Merits',
-      'Enhanced explorer features',
-      'API access credits',
-      'Priority support'
+      'Redeem for rewards',
+      'Blockscout Love',
+      'Capybaras are the best'
     ],
-    externalLink: 'https://docs.blockscout.com/devs/integrate-merits'
+    externalLink: 'https://merits-staging.blockscout.com/?tab=spend'
   },
   {
     id: 'amazon-voucher-25',
