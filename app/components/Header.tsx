@@ -1,8 +1,25 @@
+'use client'
+
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePrivy } from '@privy-io/react-auth'
+import { useAccount } from 'wagmi'
+import { useState, useEffect } from 'react'
 import { WalletConnect } from './WalletConnect'
 
 export function Header() {
+  const { ready: privyReady, authenticated } = usePrivy()
+  const { isConnected } = useAccount()
+  const [mounted, setMounted] = useState(false)
+
+  // Handle hydration
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Check if wallet is actually connected (both Privy and wagmi)
+  const isWalletConnected = mounted && privyReady && authenticated && isConnected
+
   return (
     <div className="navbar bg-base-100 shadow-sm border-b">
       <div className="navbar-start">
@@ -24,15 +41,19 @@ export function Header() {
           <Link href="/claim" className="btn btn-ghost btn-sm">
             Claim Karma
           </Link>
-          <Link href="/dashboard" className="btn btn-ghost btn-sm">
-            Dashboard
-          </Link>
-          <Link href="/campaigns" className="btn btn-ghost btn-sm">
-            Campaigns
-          </Link>
-          <Link href="/leaderboard" className="btn btn-ghost btn-sm">
-            Leaderboard
-          </Link>
+          {isWalletConnected && (
+            <>
+              <Link href="/dashboard" className="btn btn-ghost btn-sm">
+                Dashboard
+              </Link>
+              <Link href="/campaigns" className="btn btn-ghost btn-sm">
+                Campaigns
+              </Link>
+              <Link href="/leaderboard" className="btn btn-ghost btn-sm">
+                Leaderboard
+              </Link>
+            </>
+          )}
           <Link href="/shop" className="btn btn-ghost btn-sm">
             Shop
           </Link>
