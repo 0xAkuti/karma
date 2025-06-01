@@ -5,6 +5,8 @@ import { ShoppingBag, Gift, Star, Clock, Check, ExternalLink, Zap, Coffee, Ticke
 import { usePrivy, useSignMessage as usePrivySignMessage } from '@privy-io/react-auth'
 import { useSignMessage as useWagmiSignMessage } from 'wagmi'
 import { RedemptionModal } from './RedemptionModal'
+import { KarmaBurnModal } from './KarmaBurnModal'
+import { redeemKarmaTokens, getKarmaTokenBalance, RedeemKarmaResult } from '@/lib/karma-contracts'
 
 interface Reward {
   id: string
@@ -189,7 +191,6 @@ export function Shop() {
   const { signMessageAsync: signMessageWagmi } = useWagmiSignMessage()
   
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [userKarma, setUserKarma] = useState(450) // Mock user karma - in real app this would come from context/props
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [blockscoutUser, setBlockscoutUser] = useState<BlockscoutUser | null>(null)
@@ -199,6 +200,16 @@ export function Shop() {
   const [meritsError, setMeritsError] = useState<string | null>(null)
   const [meritsSuccess, setMeritsSuccess] = useState<string | null>(null)
   const [apiKeyStatus, setApiKeyStatus] = useState<'checking' | 'valid' | 'invalid'>('checking')
+
+  // Karma token related state
+  const [karmaBalance, setKarmaBalance] = useState<string>('0')
+  const [isLoadingKarma, setIsLoadingKarma] = useState(false)
+  const [karmaRedeemAmount, setKarmaRedeemAmount] = useState<string>('')
+  const [isRedeemingKarma, setIsRedeemingKarma] = useState(false)
+  const [karmaRedeemResult, setKarmaRedeemResult] = useState<RedeemKarmaResult | null>(null)
+  const [showKarmaBurnModal, setShowKarmaBurnModal] = useState(false)
+  const [karmaBurnSuccess, setKarmaBurnSuccess] = useState(false)
+  const [burnedAmount, setBurnedAmount] = useState<string>('0')
 
   const filteredRewards = selectedCategory === 'all' 
     ? rewards 
@@ -221,6 +232,7 @@ export function Shop() {
   useEffect(() => {
     if (userAddress && isMounted && apiKeyStatus === 'valid') {
       checkBlockscoutUser(userAddress)
+      loadKarmaBalance(userAddress)
     }
   }, [userAddress, isMounted, apiKeyStatus])
 
@@ -233,6 +245,21 @@ export function Shop() {
       return () => clearTimeout(timer)
     }
   }, [meritsSuccess])
+
+  // Load karma token balance from blockchain
+  const loadKarmaBalance = async (address: string) => {
+    setIsLoadingKarma(true)
+    try {
+      const balance = await getKarmaTokenBalance(address)
+      setKarmaBalance(balance)
+      console.log('Loaded karma balance:', balance)
+    } catch (error) {
+      console.error('Error loading karma balance:', error)
+      setKarmaBalance('0')
+    } finally {
+      setIsLoadingKarma(false)
+    }
+  }
 
   // Check if API key is valid
   const checkApiKey = async () => {
@@ -432,7 +459,7 @@ Expiration Time: ${expirationTime}`
       return
     }
     
-    // For Blockscout Merits, check if user is registered
+    // For Blockscout Merits, check prerequisites and show amount input
     if (reward.id === 'blockscout-merits') {
       if (!userAddress) {
         setMeritsError('Please connect your wallet first.')
@@ -448,41 +475,70 @@ Expiration Time: ${expirationTime}`
         // Don't show alert - the UI already has a signup button
         return
       }
+      
+      if (Number(karmaBalance) <= 0) {
+        setMeritsError('You need some Karma tokens to redeem for Merits. Complete some good deeds first!')
+        return
+      }
+      
+      // For Blockscout Merits, show the karma burn modal
+      setSelectedReward(reward)
+      setShowKarmaBurnModal(true)
+    } else {
+      // For other rewards, use the existing flow
+      setSelectedReward(reward)
+      setIsModalOpen(true)
     }
-    
-    setSelectedReward(reward)
-    setIsModalOpen(true)
   }
 
   const handleConfirmRedeem = async (reward: Reward) => {
-    // Deduct karma points
-    setUserKarma(prev => prev - reward.cost)
-    
-    // If it's Blockscout Merits and user has connected wallet, make actual API call
+    // For Blockscout Merits, we need to burn karma tokens first
     if (reward.id === 'blockscout-merits' && userAddress) {
       try {
-        const meritsAmount = reward.cost * 2 // 1 Karma = 2 Merits
+        setIsRedeemingKarma(true)
+        setMeritsError(null)
+        setMeritsSuccess(null)
+        
+        // Step 1: Burn karma tokens
+        console.log(`Burning ${karmaRedeemAmount} karma tokens...`)
+        const redeemResult = await redeemKarmaTokens(karmaRedeemAmount, userAddress)
+        setKarmaRedeemResult(redeemResult)
+        
+        // Step 2: Calculate merits (2:1 ratio)
+        const meritsAmount = Number(karmaRedeemAmount) * 2
+        
+        console.log(`Karma tokens burned successfully. Now distributing ${meritsAmount} merits...`)
+        
+        // Step 3: Distribute merits via Blockscout API
         await distributeBlockscoutMerits(userAddress, meritsAmount)
         
-        // Show success message
-        setMeritsSuccess(`Successfully distributed ${meritsAmount} Blockscout Merits to your wallet!`)
+        // Step 4: Update balances
+        await loadKarmaBalance(userAddress) // Refresh karma balance
+        await checkBlockscoutUser(userAddress) // Refresh merits balance
         
-        // Refresh user data after successful distribution
-        setTimeout(() => {
-          checkBlockscoutUser(userAddress)
-        }, 2000) // Wait 2 seconds for the distribution to process
+        setMeritsSuccess(`🎉 Successfully burned ${karmaRedeemAmount} Karma tokens and received ${meritsAmount} Blockscout Merits!`)
+        setKarmaBurnSuccess(true)
+        setBurnedAmount(karmaRedeemAmount)
         
-        console.log(`Successfully distributed ${meritsAmount} Blockscout Merits to ${userAddress}`)
+        console.log(`Successfully redeemed ${karmaRedeemAmount} karma for ${meritsAmount} merits`)
       } catch (error) {
-        console.error('Failed to distribute Blockscout Merits:', error)
-        // Revert karma deduction on failure
-        setUserKarma(prev => prev + reward.cost)
-        setMeritsError(`Failed to distribute Blockscout Merits: ${error instanceof Error ? error.message : 'Unknown error'}`)
-        return
+        console.error('Failed to redeem karma for merits:', error)
+        setMeritsError(`Failed to redeem: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      } finally {
+        setIsRedeemingKarma(false)
+        setKarmaRedeemAmount('')
       }
+    } else {
+      // For other rewards, use the original logic (placeholder)
+      console.log(`Redeemed ${reward.name} for ${reward.cost} karma`)
     }
-    
-    console.log(`Redeemed ${reward.name} for ${reward.cost} karma`)
+  }
+
+  const handleKarmaBurn = async (amount: string) => {
+    setKarmaRedeemAmount(amount)
+    if (selectedReward) {
+      await handleConfirmRedeem(selectedReward)
+    }
   }
 
   const handleCloseModal = () => {
@@ -541,7 +597,7 @@ Expiration Time: ${expirationTime}`
                 <Star className="w-8 h-8" />
               </div>
               <div className="stat-title">Your Karma</div>
-              <div className="stat-value text-primary karma-gradient">{userKarma}</div>
+              <div className="stat-value text-primary karma-gradient">{karmaBalance}</div>
               <div className="stat-desc">Available to spend</div>
             </div>
           </div>
@@ -731,13 +787,21 @@ Expiration Time: ${expirationTime}`
                 )}
 
                 {/* Cost */}
-                <div className="mb-3">
-                  <div className="text-xl font-bold karma-gradient">{reward.cost}</div>
-                  <div className="text-xs text-neutral/60">Karma Points</div>
-                  {isMeritsReward && (
-                    <div className="text-xs text-success">= {reward.cost * 2} Merits</div>
-                  )}
-                </div>
+                {!isMeritsReward && (
+                  <div className="mb-3">
+                    <div className="text-xl font-bold karma-gradient">{reward.cost}</div>
+                    <div className="text-xs text-neutral/60">Karma Points</div>
+                  </div>
+                )}
+
+                {/* Dynamic cost info for Merits */}
+                {isMeritsReward && (
+                  <div className="mb-3">
+                    <div className="text-sm text-success font-semibold">Dynamic Amount</div>
+                    <div className="text-xs text-neutral/60">You choose how much Karma to burn</div>
+                    <div className="text-xs text-success">1 Karma = 2 Merits</div>
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="card-actions justify-end">
@@ -751,32 +815,40 @@ Expiration Time: ${expirationTime}`
                   )}
                   <button
                     onClick={() => handleRedeemClick(reward)}
-                    disabled={!reward.available || userKarma < reward.cost || (isMeritsReward && !userAddress) || (isMeritsReward && apiKeyStatus !== 'valid') || isSigningUp}
+                    disabled={!reward.available || (isMeritsReward ? (Number(karmaBalance) <= 0 || !userAddress || apiKeyStatus !== 'valid' || isRedeemingKarma) : (Number(karmaBalance) < reward.cost || isRedeemingKarma))}
                     className={`btn btn-xs ${
                       !reward.available 
                         ? 'btn-disabled' 
-                        : userKarma < reward.cost
-                          ? 'btn-outline btn-error'
-                          : isMeritsReward && !userAddress
-                            ? 'btn-outline btn-warning'
-                            : isMeritsReward && apiKeyStatus !== 'valid'
-                              ? 'btn-disabled'
-                              : needsSignup
-                                ? 'btn-outline btn-info'
-                                : 'btn-primary'
+                        : isMeritsReward 
+                          ? (Number(karmaBalance) <= 0
+                              ? 'btn-outline btn-error'
+                              : !userAddress
+                                ? 'btn-outline btn-warning'
+                                : apiKeyStatus !== 'valid'
+                                  ? 'btn-disabled'
+                                  : needsSignup
+                                    ? 'btn-outline btn-info'
+                                    : 'btn-primary')
+                          : (Number(karmaBalance) < reward.cost
+                              ? 'btn-outline btn-error'
+                              : 'btn-primary')
                     }`}
                   >
                     {!reward.available 
                       ? 'Soon'
-                      : userKarma < reward.cost
-                        ? 'Need More'
-                        : isMeritsReward && !userAddress
-                          ? 'Connect Wallet'
-                          : isMeritsReward && apiKeyStatus !== 'valid'
-                            ? 'Unavailable'
-                            : needsSignup
-                              ? 'Sign Up First'
-                              : 'Redeem'
+                      : isMeritsReward
+                        ? (Number(karmaBalance) <= 0
+                            ? 'Need Karma'
+                            : !userAddress
+                              ? 'Connect Wallet'
+                              : apiKeyStatus !== 'valid'
+                                ? 'Unavailable'
+                                : needsSignup
+                                  ? 'Sign Up First'
+                                  : 'Redeem')
+                        : (Number(karmaBalance) < reward.cost
+                            ? 'Need More'
+                            : 'Redeem')
                     }
                   </button>
                 </div>
@@ -831,7 +903,27 @@ Expiration Time: ${expirationTime}`
           onClose={handleCloseModal}
           onConfirmRedeem={handleConfirmRedeem}
           reward={selectedReward}
-          userKarma={userKarma}
+          userKarma={Number(karmaBalance)}
+        />
+      )}
+
+      {selectedReward && (
+        <KarmaBurnModal
+          reward={selectedReward}
+          karmaBalance={karmaBalance}
+          isOpen={showKarmaBurnModal}
+          onClose={() => {
+            setShowKarmaBurnModal(false)
+            setKarmaBurnSuccess(false)
+            setKarmaRedeemAmount('')
+            setBurnedAmount('0')
+          }}
+          onConfirmBurn={handleKarmaBurn}
+          isRedeeming={isRedeemingKarma}
+          redeemSuccess={karmaBurnSuccess}
+          karmaAmount={karmaRedeemAmount}
+          setKarmaAmount={setKarmaRedeemAmount}
+          burnedAmount={burnedAmount}
         />
       )}
     </div>

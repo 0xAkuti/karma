@@ -251,6 +251,61 @@ export const KARMA_PROOF_VERIFIER_ABI = [
 }
 ] as const
 
+// KarmaToken ABI - minimal for redeem function
+export const KARMA_TOKEN_ABI = [
+  {
+    "type": "function",
+    "name": "redeem",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "balanceOf",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "Redeemed",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  }
+] as const
+
 // Get contract addresses from environment variables
 export function getContractAddresses() {
   const karmaNFT = process.env.NEXT_PUBLIC_KARMA_NFT_CONTRACT
@@ -599,4 +654,130 @@ export function generateTwitterShareUrl(params: {
 }) {
   const text = generateTwitterShareText(params)
   return `https://twitter.com/intent/tweet?text=${text}`
+}
+
+// Interface for karma token redemption
+export interface RedeemKarmaResult {
+  transactionHash: string
+  blockscoutUrl: string
+  amountBurned: string
+  receipt?: any
+}
+
+// Function to redeem (burn) karma tokens
+export async function redeemKarmaTokens(
+  amount: string,
+  userAddress: string
+): Promise<RedeemKarmaResult> {
+  const contracts = getContractAddresses()
+  const { publicClient, getWalletClient, chain } = createClients()
+  
+  const walletClient = getWalletClient()
+  
+  if (!walletClient) {
+    throw new Error('Wallet not connected')
+  }
+
+  // Check current chain and switch if necessary
+  const targetChainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '545')
+  
+  try {
+    // Get current chain from wallet
+    const currentChainId = await window.ethereum?.request({ method: 'eth_chainId' })
+    const currentChainIdNumber = parseInt(currentChainId, 16)
+    
+    if (currentChainIdNumber !== targetChainId) {
+      throw new Error(`Please switch to chain ID ${targetChainId}. Currently on chain ID ${currentChainIdNumber}`)
+    }
+
+    // Get the connected account from the wallet client
+    const [connectedAccount] = await walletClient.getAddresses()
+    
+    if (!connectedAccount) {
+      throw new Error('No account connected to wallet')
+    }
+
+    // Convert amount to wei (assuming 18 decimals)
+    const amountWei = BigInt(Number(amount) * Math.pow(10, 18))
+
+    console.log('Redeeming Karma tokens with params:', {
+      contract: contracts.karmaToken,
+      amount: amount,
+      amountWei: amountWei.toString(),
+      account: connectedAccount
+    })
+
+    // Call the redeem function on KarmaToken contract
+    const hash = await walletClient.writeContract({
+      address: contracts.karmaToken as `0x${string}`,
+      abi: KARMA_TOKEN_ABI,
+      functionName: 'redeem',
+      args: [amountWei],
+      account: connectedAccount,
+      chain: chain
+    })
+
+    console.log('Redeem transaction submitted:', hash)
+
+    // Generate blockscout URL
+    let blockscoutUrl: string
+    if (chain.id === 31337) {
+      blockscoutUrl = `http://localhost:8545/tx/${hash}`
+    } else if (process.env.NEXT_PUBLIC_BLOCKSCOUT_URL) {
+      blockscoutUrl = `${process.env.NEXT_PUBLIC_BLOCKSCOUT_URL}/tx/${hash}`
+    } else if (chain.id === 545) {
+      blockscoutUrl = `https://evm-testnet.flowscan.io/tx/${hash}`
+    } else if (chain.id === 84532) {
+      blockscoutUrl = `https://sepolia.basescan.org/tx/${hash}`
+    } else {
+      blockscoutUrl = `https://blockscout.example.com/tx/${hash}`
+    }
+
+    // Wait for transaction receipt
+    let receipt = null
+    try {
+      console.log('Waiting for redeem transaction receipt...')
+      receipt = await publicClient.waitForTransactionReceipt({ 
+        hash: hash,
+        timeout: 60_000 // 60 second timeout
+      })
+      
+      console.log('Redeem transaction receipt:', receipt)
+    } catch (error) {
+      console.warn('Failed to wait for transaction receipt:', error)
+      // Continue without receipt - the transaction was still submitted
+    }
+
+    return {
+      transactionHash: hash,
+      blockscoutUrl,
+      amountBurned: amount,
+      receipt
+    }
+  } catch (error: any) {
+    console.error('Error redeeming Karma tokens:', error)
+    throw new Error(`Failed to redeem Karma tokens: ${error.message}`)
+  }
+}
+
+// Function to get karma token balance
+export async function getKarmaTokenBalance(userAddress: string): Promise<string> {
+  const contracts = getContractAddresses()
+  const { publicClient } = createClients()
+  
+  try {
+    const balance = await publicClient.readContract({
+      address: contracts.karmaToken as `0x${string}`,
+      abi: KARMA_TOKEN_ABI,
+      functionName: 'balanceOf',
+      args: [userAddress as `0x${string}`]
+    })
+    
+    // Convert from wei to ether (assuming 18 decimals)
+    const balanceEther = Number(balance) / Math.pow(10, 18)
+    return balanceEther.toString()
+  } catch (error) {
+    console.error('Error getting karma token balance:', error)
+    return '0'
+  }
 } 
