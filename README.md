@@ -17,4 +17,37 @@ We want makes good deeds Visible, Verifiable, Valued. Karma Proof is a step towa
 - To encourage adoption, we designed gamified features like streaks, leaderboards, and campaigns (e.g., “Blood Donation Week”). User can also share Karma NFTs with friends on Twitter.
 - Reward shop: users can spend Karma points to redeem web2 rewards globally.
 
-  
+#### Tech Stack  
+🌐 Core Architecture
+A privacy-first public good verification system combining:
+Zero-knowledge email proofs (via vLayer)
+Soulbound NFTs & tokens (on Flow)
+Real-time transaction tracking & rewards (via Blockscout)
+
+🔐 vLayer – ZK Email Verification
+Users upload .eml files (processed client-side)
+vLayer's prover network generates off-chain proofs
+Proofs are verified on-chain by KarmaProofVerifier
+NFTs + soulbound tokens minted based on verified data
+Example: donation amount parsed from Wikipedia email using regex
+No personal data on-chain—only proof hash and value
+
+🪙 Flow – Soulbound NFT & Token System
+Optimized for low-cost, high-scale social apps
+ERC-5484 soulbound NFTs via KarmaNFT.sol
+Burn authorization stored in extraData (bit-packed)
+
+Dual token model:
+KarmaNFT = reputation/collection
+KarmaToken = redeemable, non-transferable rewards
+
+Smart contracts include gas optimization + role-based controls
+
+🧩 Blockscout – UX, Feedback, and Rewards
+Real-time transaction status via custom React hook (useTransactionStatus)
+Explorer popups via Blockscout SDK + TransactionPopupListener
+
+Merits bridge:
+Full SIWE flow
+Users redeem karma tokens for Merits in a custom shop
+Handles nonce, message signing, and session tracking
