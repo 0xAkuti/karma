@@ -51,7 +51,7 @@ const rewards: Reward[] = [
     icon: <Zap className="w-6 h-6" />,
     category: 'merits',
     available: true,
-    image: 'https://sourcify.dev/static/media/blockscout.823a50aeffebe304645d.png',
+    image: '/images/logo-merit.png',
     features: [
       '1 Karma = 2 Merits',
       'Redeem for rewards',
