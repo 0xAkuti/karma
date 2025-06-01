@@ -1,12 +1,12 @@
 'use client'
 
 import { Shield, Calendar, ExternalLink, Eye, Twitter } from 'lucide-react'
-import { generateBlockscoutUrls } from '@/lib/karma-contracts'
+import { generateBlockscoutUrls, type NFTMetadata } from '@/lib/karma-contracts'
 import Image from 'next/image'
 import { useState } from 'react'
 
 interface KarmaNFT {
-  id: number
+  id: number | string
   title: string
   description: string
   category: string
@@ -16,17 +16,24 @@ interface KarmaNFT {
   verified: boolean
   tokenId?: string
   transactionHash?: string
+  isRealNFT?: boolean
+  contractAddress?: string
+  blockchainVerified?: boolean
 }
+
+// Union type to handle both mock NFTs and real NFTs
+type NFTData = KarmaNFT | NFTMetadata
 
 interface KarmaCardProps {
-  nft: KarmaNFT
+  nft: NFTData
 }
 
-function KarmaDetailModal({ nft, isOpen, onClose }: { nft: KarmaNFT; isOpen: boolean; onClose: () => void }) {
+function KarmaDetailModal({ nft, isOpen, onClose }: { nft: NFTData; isOpen: boolean; onClose: () => void }) {
   const handleViewOnExplorer = () => {
     if (nft.tokenId) {
       const urls = generateBlockscoutUrls(nft.tokenId, nft.transactionHash)
-      const targetUrl = urls.transaction || urls.token
+      // Prioritize token instance URL, then transaction, then general token contract
+      const targetUrl = urls.tokenInstance || urls.transaction || urls.token
       if (targetUrl) {
         window.open(targetUrl, '_blank')
       }
@@ -69,10 +76,15 @@ function KarmaDetailModal({ nft, isOpen, onClose }: { nft: KarmaNFT; isOpen: boo
         return 'badge-success'
       case 'community':
         return 'badge-warning'
+      case 'verified deed':
+        return 'badge-primary'
       default:
         return 'badge-primary'
     }
   }
+
+  // Check if this is a real NFT from blockchain
+  const isRealNFT = 'isRealNFT' in nft ? nft.isRealNFT : ('blockchainVerified' in nft ? nft.blockchainVerified : false)
 
   if (!isOpen) return null
 
@@ -121,6 +133,11 @@ function KarmaDetailModal({ nft, isOpen, onClose }: { nft: KarmaNFT; isOpen: boo
             <h4 className="font-semibold text-neutral mb-2">Token Information</h4>
             <div className="bg-base-200 p-4 rounded-lg font-mono text-sm">
               <span className="text-neutral/60">Token ID:</span> <span className="text-neutral">{nft.tokenId}</span>
+              {isRealNFT && 'contractAddress' in nft && nft.contractAddress && (
+                <div className="mt-2">
+                  <span className="text-neutral/60">Contract:</span> <span className="text-neutral text-xs break-all">{nft.contractAddress}</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -187,15 +204,20 @@ export function KarmaCard({ nft }: KarmaCardProps) {
         return 'badge-success'
       case 'community':
         return 'badge-warning'
+      case 'verified deed':
+        return 'badge-primary'
       default:
         return 'badge-primary'
     }
   }
 
+  // Check if this is a real NFT from blockchain
+  const isRealNFT = 'isRealNFT' in nft ? nft.isRealNFT : ('blockchainVerified' in nft ? nft.blockchainVerified : false)
+
   return (
     <>
       <div 
-        className="card bg-base-100 shadow-lg hover:shadow-xl transition-all duration-300 karma-card cursor-pointer transform hover:scale-105"
+        className={`card bg-base-100 shadow-lg hover:shadow-xl transition-all duration-300 karma-card cursor-pointer transform hover:scale-105 ${isRealNFT ? 'ring-2 ring-success/20' : ''}`}
         onClick={() => setIsModalOpen(true)}
       >
         {/* NFT Image */}
@@ -214,14 +236,14 @@ export function KarmaCard({ nft }: KarmaCardProps) {
         <div className="card-body p-6">
           {/* Header */}
           <div className="flex items-start justify-between mb-3">
-            <div>
+            <div className="flex-1 min-w-0">
               <h3 className="card-title text-base font-semibold text-neutral line-clamp-1">{nft.title}</h3>
               <div className={`badge badge-sm ${getCategoryColor(nft.category)} mt-1`}>
                 {nft.category}
               </div>
             </div>
             {nft.verified && (
-              <Shield className="w-4 h-4 text-success flex-shrink-0" />
+              <Shield className="w-4 h-4 text-success flex-shrink-0 ml-2" />
             )}
           </div>
 

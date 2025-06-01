@@ -561,8 +561,16 @@ export async function mintKarmaNFT(
   }
 }
 
+// Interface for Blockscout URL generation
+export interface BlockscoutUrls {
+  token: string
+  tokenInstance: string
+  transaction: string | null
+  contract: string
+}
+
 // Generate Blockscout URLs
-export function generateBlockscoutUrls(tokenId: string, transactionHash?: string) {
+export function generateBlockscoutUrls(tokenId: string, transactionHash?: string): BlockscoutUrls {
   const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '545')
   const contracts = getContractAddresses()
   
@@ -570,6 +578,7 @@ export function generateBlockscoutUrls(tokenId: string, transactionHash?: string
   if (chainId === 31337) {
     return {
       token: `http://localhost:8545/token/${contracts.karmaNFT}`,
+      tokenInstance: `http://localhost:8545/token/${contracts.karmaNFT}/instance/${tokenId}`,
       transaction: transactionHash ? `http://localhost:8545/tx/${transactionHash}` : null,
       contract: `http://localhost:8545/address/${contracts.karmaNFT}`
     }
@@ -580,6 +589,7 @@ export function generateBlockscoutUrls(tokenId: string, transactionHash?: string
     const baseUrl = process.env.NEXT_PUBLIC_BLOCKSCOUT_URL
     return {
       token: `${baseUrl}/token/${contracts.karmaNFT}`,
+      tokenInstance: `${baseUrl}/token/${contracts.karmaNFT}/instance/${tokenId}`,
       transaction: transactionHash ? `${baseUrl}/tx/${transactionHash}` : null,
       contract: `${baseUrl}/address/${contracts.karmaNFT}`
     }
@@ -590,6 +600,7 @@ export function generateBlockscoutUrls(tokenId: string, transactionHash?: string
     const baseUrl = 'https://evm-testnet.flowscan.io'
     return {
       token: `${baseUrl}/token/${contracts.karmaNFT}`,
+      tokenInstance: `${baseUrl}/token/${contracts.karmaNFT}/instance/${tokenId}`,
       transaction: transactionHash ? `${baseUrl}/tx/${transactionHash}` : null,
       contract: `${baseUrl}/address/${contracts.karmaNFT}`
     }
@@ -600,6 +611,7 @@ export function generateBlockscoutUrls(tokenId: string, transactionHash?: string
     const baseUrl = 'https://sepolia.basescan.org'
     return {
       token: `${baseUrl}/token/${contracts.karmaNFT}`,
+      tokenInstance: `${baseUrl}/token/${contracts.karmaNFT}?a=${tokenId}`, // BaseScan uses different format
       transaction: transactionHash ? `${baseUrl}/tx/${transactionHash}` : null,
       contract: `${baseUrl}/address/${contracts.karmaNFT}`
     }
@@ -609,6 +621,7 @@ export function generateBlockscoutUrls(tokenId: string, transactionHash?: string
   const baseUrl = 'https://blockscout.example.com'
   return {
     token: `${baseUrl}/token/${contracts.karmaNFT}`,
+    tokenInstance: `${baseUrl}/token/${contracts.karmaNFT}/instance/${tokenId}`,
     transaction: transactionHash ? `${baseUrl}/tx/${transactionHash}` : null,
     contract: `${baseUrl}/address/${contracts.karmaNFT}`
   }
@@ -762,22 +775,237 @@ export async function redeemKarmaTokens(
 
 // Function to get karma token balance
 export async function getKarmaTokenBalance(userAddress: string): Promise<string> {
-  const contracts = getContractAddresses()
-  const { publicClient } = createClients()
-  
   try {
+    const contracts = getContractAddresses()
+    const chain = getDynamicChain()
+    
+    const publicClient = createPublicClient({
+      chain,
+      transport: http()
+    })
+
     const balance = await publicClient.readContract({
       address: contracts.karmaToken as `0x${string}`,
       abi: KARMA_TOKEN_ABI,
       functionName: 'balanceOf',
       args: [userAddress as `0x${string}`]
     })
-    
-    // Convert from wei to ether (assuming 18 decimals)
-    const balanceEther = Number(balance) / Math.pow(10, 18)
-    return balanceEther.toString()
+
+    // Balance is returned in wei, convert to readable format
+    return (Number(balance) / 10**18).toString()
   } catch (error) {
-    console.error('Error getting karma token balance:', error)
+    console.error('Error fetching karma token balance:', error)
     return '0'
+  }
+}
+
+// Interface for NFT metadata
+export interface NFTMetadata {
+  id: string
+  title: string
+  description: string
+  category: string
+  karmaPoints: number
+  dateEarned: string
+  imageUrl: string
+  verified: boolean
+  isRealNFT: boolean
+  contractAddress: string
+  tokenId: string
+  blockchainVerified: boolean
+  transactionHash?: string
+}
+
+// Fetch user's Karma NFTs from blockchain
+export async function getUserKarmaNFTs(userAddress: string): Promise<NFTMetadata[]> {
+  try {
+    const contracts = getContractAddresses()
+    const nfts: NFTMetadata[] = []
+
+    // Try Blockscout API first (most reliable)
+    try {
+      const blockscoutNFTs = await fetchNFTsFromBlockscout(userAddress, contracts.karmaNFT)
+      nfts.push(...blockscoutNFTs)
+    } catch (error) {
+      console.warn('Blockscout API failed, trying event logs fallback:', error)
+      
+      // Fallback to event logs
+      const eventNFTs = await fetchNFTsFromEvents(userAddress, contracts.karmaNFT)
+      nfts.push(...eventNFTs)
+    }
+
+    return nfts
+  } catch (error) {
+    console.error('Error fetching user NFTs:', error)
+    return []
+  }
+}
+
+// Fetch NFTs using Blockscout API
+async function fetchNFTsFromBlockscout(userAddress: string, contractAddress: string): Promise<NFTMetadata[]> {
+  const chain = getDynamicChain()
+  let blockscoutUrl = ''
+  
+  // Set Blockscout URL based on chain
+  if (chain.id === 545) {
+    blockscoutUrl = 'https://evm-testnet.flowdx.org'
+  } else if (chain.id === 84532) {
+    blockscoutUrl = 'https://base-sepolia.blockscout.com'
+  } else {
+    throw new Error('Blockscout not available for this chain')
+  }
+
+  const apiUrl = `${blockscoutUrl}/api/v2/addresses/${userAddress}/nft?type=ERC-721&filter=${contractAddress}`
+  
+  const response = await fetch(apiUrl)
+  if (!response.ok) {
+    throw new Error(`Blockscout API error: ${response.status}`)
+  }
+
+  const data = await response.json()
+  const nfts: NFTMetadata[] = []
+
+  if (data.items && Array.isArray(data.items)) {
+    for (const item of data.items) {
+      if (item.token?.address?.toLowerCase() === contractAddress.toLowerCase()) {
+        // Fetch token metadata
+        const metadata = await fetchNFTMetadata(item.id, contractAddress)
+        if (metadata) {
+          nfts.push(metadata)
+        }
+      }
+    }
+  }
+
+  return nfts
+}
+
+// Fetch NFTs using event logs (fallback method)
+async function fetchNFTsFromEvents(userAddress: string, contractAddress: string): Promise<NFTMetadata[]> {
+  const chain = getDynamicChain()
+  const publicClient = createPublicClient({
+    chain,
+    transport: http()
+  })
+
+  const nfts: NFTMetadata[] = []
+
+  try {
+    // Get Transfer events where the user is the recipient
+    const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' // Transfer(address,address,uint256)
+    
+    const logs = await publicClient.getLogs({
+      address: contractAddress as `0x${string}`,
+      event: {
+        type: 'event',
+        name: 'Transfer',
+        inputs: [
+          { name: 'from', type: 'address', indexed: true },
+          { name: 'to', type: 'address', indexed: true },
+          { name: 'tokenId', type: 'uint256', indexed: true }
+        ]
+      },
+      args: {
+        to: userAddress as `0x${string}`
+      },
+      fromBlock: 'earliest',
+      toBlock: 'latest'
+    })
+
+    for (const log of logs) {
+      if (log.topics && log.topics.length >= 4) {
+        const tokenIdHex = log.topics[3]
+        const tokenId = parseInt(tokenIdHex, 16).toString()
+        
+        // Check if user still owns this NFT
+        try {
+          const owner = await publicClient.readContract({
+            address: contractAddress as `0x${string}`,
+            abi: KARMA_NFT_ABI,
+            functionName: 'ownerOf',
+            args: [BigInt(tokenId)]
+          })
+
+          if (owner && owner.toLowerCase() === userAddress.toLowerCase()) {
+            const metadata = await fetchNFTMetadata(tokenId, contractAddress)
+            if (metadata) {
+              nfts.push(metadata)
+            }
+          }
+        } catch (error) {
+          // Token might not exist anymore (burned)
+          console.warn(`Token ${tokenId} no longer exists:`, error)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching NFTs from events:', error)
+  }
+
+  return nfts
+}
+
+// Fetch individual NFT metadata
+async function fetchNFTMetadata(tokenId: string, contractAddress: string): Promise<NFTMetadata | null> {
+  try {
+    const chain = getDynamicChain()
+    const publicClient = createPublicClient({
+      chain,
+      transport: http()
+    })
+
+    // Get token URI
+    const tokenURI = await publicClient.readContract({
+      address: contractAddress as `0x${string}`,
+      abi: KARMA_NFT_ABI,
+      functionName: 'tokenURI',
+      args: [BigInt(tokenId)]
+    })
+
+    // For now, create metadata based on the tokenId
+    // In a real implementation, you would fetch from the tokenURI
+    const metadata: NFTMetadata = {
+      id: `real-nft-${tokenId}`,
+      title: `Karma NFT #${tokenId}`,
+      description: `Verified karma proof NFT minted on-chain. This represents a verified good deed that earned you karma tokens.`,
+      category: 'Verified Deed',
+      karmaPoints: 100, // Could be extracted from tokenURI metadata
+      dateEarned: new Date().toISOString().split('T')[0], // Could be extracted from blockchain timestamp
+      imageUrl: '/nft/gift-wiki.png', // Default to Wikipedia donation image
+      verified: true,
+      isRealNFT: true,
+      contractAddress,
+      tokenId,
+      blockchainVerified: true,
+    }
+
+    // Try to fetch actual metadata from tokenURI if it's a valid URL
+    if (tokenURI.startsWith('http')) {
+      try {
+        const metadataResponse = await fetch(tokenURI)
+        if (metadataResponse.ok) {
+          const onChainMetadata = await metadataResponse.json()
+          
+          // Update metadata with on-chain data
+          if (onChainMetadata.name) metadata.title = onChainMetadata.name
+          if (onChainMetadata.description) metadata.description = onChainMetadata.description
+          if (onChainMetadata.image) metadata.imageUrl = onChainMetadata.image
+          if (onChainMetadata.attributes) {
+            const categoryAttr = onChainMetadata.attributes.find((attr: any) => attr.trait_type === 'Category')
+            if (categoryAttr) metadata.category = categoryAttr.value
+            
+            const karmaAttr = onChainMetadata.attributes.find((attr: any) => attr.trait_type === 'Karma Points')
+            if (karmaAttr) metadata.karmaPoints = parseInt(karmaAttr.value) || 100
+          }
+        }
+      } catch (error) {
+        console.warn('Could not fetch metadata from tokenURI:', error)
+      }
+    }
+
+    return metadata
+  } catch (error) {
+    console.error(`Error fetching metadata for token ${tokenId}:`, error)
+    return null
   }
 } 

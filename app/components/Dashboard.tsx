@@ -1,9 +1,11 @@
 'use client'
 
 import { usePrivy } from '@privy-io/react-auth'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { KarmaCard } from './KarmaCard'
-import { Sparkles, Plus, Award, Trophy, Star, Target } from 'lucide-react'
+import { Sparkles, Plus, Award, Trophy, Star, Target, Loader2 } from 'lucide-react'
+import { getKarmaTokenBalance, getContractAddresses, getUserKarmaNFTs, type NFTMetadata } from '@/lib/karma-contracts'
 
 // Mock data for development - using actual NFT images
 const mockKarmaNFTs = [
@@ -79,8 +81,96 @@ const supportedProjects = [
 ]
 
 export function Dashboard() {
-  const { user } = usePrivy()
-  const totalKarma = mockKarmaNFTs.reduce((sum, nft) => sum + nft.karmaPoints, 0)
+  const { user, ready, authenticated } = usePrivy()
+  
+  // State for real data
+  const [karmaBalance, setKarmaBalance] = useState<string>('0')
+  const [isLoadingKarma, setIsLoadingKarma] = useState(false)
+  const [userNFTs, setUserNFTs] = useState<any[]>([])
+  const [isLoadingNFTs, setIsLoadingNFTs] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Get user address from Privy
+  const userAddress = authenticated && user?.wallet?.address ? user.wallet.address : ''
+
+  // Mock data calculations
+  const totalMockKarma = mockKarmaNFTs.reduce((sum, nft) => sum + nft.karmaPoints, 0)
+  const totalRealKarma = Number(karmaBalance)
+  const totalKarma = totalMockKarma + totalRealKarma
+  const totalNFTs = mockKarmaNFTs.length + userNFTs.length
+
+  // Handle hydration
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Load karma balance when wallet connects
+  useEffect(() => {
+    if (userAddress && isMounted) {
+      loadKarmaBalance(userAddress)
+    }
+  }, [userAddress, isMounted])
+
+  // Load user NFTs after karma balance is loaded
+  useEffect(() => {
+    if (userAddress && isMounted && !isLoadingKarma) {
+      loadUserNFTs(userAddress)
+    }
+  }, [userAddress, isMounted, karmaBalance, isLoadingKarma])
+
+  // Load karma token balance from blockchain
+  const loadKarmaBalance = async (address: string) => {
+    setIsLoadingKarma(true)
+    try {
+      const balance = await getKarmaTokenBalance(address)
+      setKarmaBalance(balance)
+      console.log('Loaded karma balance:', balance)
+    } catch (error) {
+      console.error('Error loading karma balance:', error)
+      setKarmaBalance('0')
+    } finally {
+      setIsLoadingKarma(false)
+    }
+  }
+
+  // Load user's NFTs from blockchain (updated implementation)
+  const loadUserNFTs = async (address: string) => {
+    setIsLoadingNFTs(true)
+    try {
+      const nfts = await getUserKarmaNFTs(address)
+      setUserNFTs(nfts)
+      console.log('Loaded user NFTs:', nfts)
+    } catch (error) {
+      console.error('Error loading user NFTs:', error)
+      setUserNFTs([])
+    } finally {
+      setIsLoadingNFTs(false)
+    }
+  }
+
+  // Don't render until mounted to avoid hydration issues
+  if (!isMounted || !ready) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-96 mb-8"></div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="card bg-base-100 shadow">
+                <div className="h-40 bg-gray-200 rounded-t-2xl"></div>
+                <div className="card-body p-4">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-full mb-4"></div>
+                  <div className="h-6 bg-gray-200 rounded w-16"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -101,8 +191,28 @@ export function Dashboard() {
                 <Trophy className="w-8 h-8" />
               </div>
               <div className="stat-title">Total Karma</div>
-              <div className="stat-value text-primary karma-gradient">{totalKarma}</div>
-              <div className="stat-desc">From {mockKarmaNFTs.length} good deeds</div>
+              <div className="stat-value text-primary karma-gradient">
+                {isLoadingKarma ? (
+                  <span className="loading loading-spinner loading-md"></span>
+                ) : (
+                  totalKarma
+                )}
+              </div>
+              <div className="stat-desc">
+                {authenticated && userAddress ? (
+                  <>
+                    {Number(karmaBalance) > 0 && (
+                      <span className="text-success">🪙 {karmaBalance} tokens</span>
+                    )}
+                    {Number(karmaBalance) > 0 && mockKarmaNFTs.length > 0 && ' • '}
+                    {mockKarmaNFTs.length > 0 && (
+                      <span className="text-neutral/70">📚 {totalMockKarma} examples</span>
+                    )}
+                  </>
+                ) : (
+                  `From ${totalNFTs} good deeds`
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -140,15 +250,42 @@ export function Dashboard() {
             </div>
             <div className="badge badge-primary badge-lg">
               <Star className="w-4 h-4 mr-1" />
-              {mockKarmaNFTs.length} NFTs
+              {totalNFTs} NFTs
             </div>
           </div>
 
-          {mockKarmaNFTs.length > 0 ? (
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {mockKarmaNFTs.map((nft) => (
-                <KarmaCard key={nft.id} nft={nft} />
-              ))}
+          {totalNFTs > 0 ? (
+            <div className="space-y-6">
+              {/* Real User NFTs */}
+              {userNFTs.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <h3 className="text-lg font-semibold text-primary">Your Minted NFTs</h3>
+                    {isLoadingNFTs && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <div className="badge badge-success badge-sm">✅ Verified On-Chain</div>
+                  </div>
+                  <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {userNFTs.map((nft) => (
+                      <KarmaCard key={nft.id} nft={nft} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Mock/Example NFTs */}
+              {mockKarmaNFTs.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <h3 className="text-lg font-semibold text-neutral/70">Example Karma NFTs</h3>
+                    <div className="badge badge-secondary badge-sm">📚 Examples</div>
+                  </div>
+                  <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {mockKarmaNFTs.map((nft) => (
+                      <KarmaCard key={nft.id} nft={nft} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="card bg-base-200 shadow-lg">
@@ -199,17 +336,34 @@ export function Dashboard() {
               <h4 className="font-semibold text-neutral mb-4">Your Impact</h4>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-neutral/70">Categories</span>
-                  <span className="font-semibold">3</span>
+                  <span className="text-neutral/70">Real NFTs</span>
+                  <span className="font-semibold text-success">
+                    {userNFTs.length}
+                    {isLoadingNFTs && <Loader2 className="w-3 h-3 ml-1 animate-spin inline" />}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-neutral/70">This Month</span>
-                  <span className="font-semibold">+{totalKarma}</span>
+                  <span className="text-neutral/70">Example NFTs</span>
+                  <span className="font-semibold text-neutral/70">{mockKarmaNFTs.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-neutral/70">Ranking</span>
-                  <span className="font-semibold text-primary">Top 15%</span>
+                  <span className="text-neutral/70">Karma Tokens</span>
+                  <span className="font-semibold text-primary">
+                    {isLoadingKarma ? (
+                      <Loader2 className="w-3 h-3 animate-spin inline" />
+                    ) : (
+                      karmaBalance
+                    )}
+                  </span>
                 </div>
+                {authenticated && userAddress && (
+                  <div className="flex justify-between">
+                    <span className="text-neutral/70">Status</span>
+                    <span className="font-semibold text-success">
+                      {Number(karmaBalance) > 0 ? '✅ Active' : '🔗 Connected'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -217,4 +371,4 @@ export function Dashboard() {
       </div>
     </div>
   )
-} 
+}
